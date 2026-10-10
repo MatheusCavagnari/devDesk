@@ -2,6 +2,7 @@ const providers = [
   {
     id: 'copilot-cli',
     name: 'GitHub Copilot CLI',
+    command: 'copilot',
     description: 'Executa a tarefa com o CLI instalado e autenticado no Windows.',
     platforms: ['win32'],
     buildCliArguments({ prompt, targetPaths }) {
