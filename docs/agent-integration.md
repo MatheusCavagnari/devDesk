@@ -28,7 +28,7 @@ O backend deve depender de uma interface de provider, e não diretamente de coma
 - cancelamento;
 - resultado final com código de saída e referência ao log.
 
-A implementação inicial pode ser simples e baseada em processos filhos do Node.js. Não criar desde já um sistema genérico excessivamente abstrato: implementar primeiro o contrato mínimo necessário ao Copilot CLI e testar sua separação.
+A implementação inicial usa um registro de providers em `src/agents/providers.js`, com o contrato mínimo de metadados e construção de argumentos do CLI. O processo e o ciclo de vida ficam no backend; um provider novo deve implementar o contrato e seu mecanismo de execução específico sem acoplar a interface ao fornecedor.
 
 ## Fluxo de execução
 
@@ -64,7 +64,8 @@ Regras para a primeira versão:
 
 - não habilitar automaticamente `--allow-all`, `--yolo`, `--allow-all-tools` ou permissões equivalentes;
 - não construir comandos juntando strings com dados do usuário; passar argumentos separadamente e usar um diretório de trabalho explícito;
-- limitar o acesso aos projetos escolhidos e usar as opções de permissão mais restritas compatíveis com o fluxo;
+- adicionar apenas os diretórios escolhidos à lista de caminhos do CLI; essa lista não é uma sandbox e as verificações de caminho são heurísticas;
+- a execução atual pede confirmação explícita e concede `write` e `shell` para permitir implementação autônoma. `shell` pode executar comandos com as permissões do usuário, então a confirmação deve explicar esse risco;
 - não registrar tokens, segredos ou conteúdo sensível desnecessário nos logs;
 - capturar saída, código de saída, falhas de inicialização e cancelamento;
 - mostrar ao usuário que o agente pode modificar arquivos e executar comandos, antes da confirmação.
@@ -87,7 +88,7 @@ A CLI pode pedir aprovação interativa para certas ações; a primeira implemen
 1. **Contrato e modelo:** documentar provider, execução e seleção multi-projeto.
 2. **Persistência e UI:** guardar projetos-alvo e permitir seleção de múltiplos projetos.
 3. **Executor isolado:** implementar processo filho e eventos de estado, inicialmente com testes/fake provider.
-4. **Copilot CLI:** detecção, prompt, permissões restritas, logs e cancelamento.
+4. **Copilot CLI:** integração inicial disponível no Windows, com confirmação explícita, prompt estruturado, diretórios adicionais, saída, estado e cancelamento. Ainda precisa de testes manuais no Windows e revisão de falhas de processo.
 5. **Revisão:** testar tarefa de um projeto e tarefa que altere dois repositórios; revisar diffs e documentação.
 6. **Outros providers:** adicionar somente quando o contrato inicial estiver estável.
 
