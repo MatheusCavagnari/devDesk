@@ -2,10 +2,13 @@ import express from 'express';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 
 const app = express();
 const PORT = Number(process.env.PORT || 3030);
+const execFileAsync = promisify(execFile);
 const here = path.dirname(fileURLToPath(import.meta.url));
 let projectsRoot = '';
 
@@ -74,6 +77,37 @@ async function syncIndex(project) {
 }
 
 app.get('/api/config', (_req, res) => res.json({ projectsRoot, home: os.homedir() }));
+
+// Abre o seletor nativo de pastas do Windows.
+app.post('/api/select-folder', async (_req, res) => {
+  try {
+    const script = [
+      '$ErrorActionPreference = "Stop"',
+      'Add-Type -AssemblyName System.Windows.Forms',
+      '$dialog = New-Object System.Windows.Forms.FolderBrowserDialog',
+      '$dialog.Description = "Selecione a pasta que contém seus projetos"',
+      '$dialog.ShowNewFolderButton = $false',
+      'if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::WriteLine($dialog.SelectedPath) }'
+    ].join('; ');
+    const { stdout } = await execFileAsync('powershell.exe', ['-NoProfile', '-STA', '-Command', script], {
+      windowsHide: true,
+      timeout: 120000
+    });
+    const selected = stdout.trim();
+    if (!selected) return res.json({ cancelled: true });
+
+    const full = path.resolve(selected);
+    const stat = await fs.stat(full).catch(() => null);
+    if (!stat?.isDirectory()) {
+      return res.status(400).json({ error: 'A pasta selecionada não existe ou não é uma pasta.' });
+    }
+
+    projectsRoot = await fs.realpath(full);
+    res.json({ projectsRoot });
+  } catch (e) {
+    res.status(500).json({ error: 'Não foi possível abrir o seletor de pastas do Windows: ' + e.message });
+  }
+});
 app.post('/api/config', async (req, res) => {
   try {
     const raw = String(req.body?.projectsRoot || '').trim();
