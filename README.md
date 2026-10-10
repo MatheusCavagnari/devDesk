@@ -10,9 +10,10 @@ Aplicação local com Node.js e interface web para listar projetos dentro de uma
 1. Clone este repositório.
 2. Abra um terminal dentro da pasta do projeto.
 3. Execute `npm install`.
-4. Execute `npm start`.
-5. Abra http://127.0.0.1:3030.
-6. Clique em **Escolher pasta…** e selecione a pasta que contém seus projetos.
+4. Execute `npm test` para rodar os testes automatizados disponíveis.
+5. Execute `npm start`.
+6. Abra http://127.0.0.1:3030.
+7. Clique em **Escolher pasta…** e selecione a pasta que contém seus projetos.
 
 O DevDesk lista as subpastas diretas dessa pasta. Ao selecionar um projeto e criar uma tarefa, ele cria/atualiza:
 
@@ -23,6 +24,13 @@ projeto/.devdesk/tasks/TASK-001.md
 
 ## Formato das tarefas
 Cada tarefa inclui ID, título, descrição, prioridade, status, critérios de aceitação, datas e uma lista de projetos-alvo. Ao criar ou editar uma tarefa, selecione todos os repositórios envolvidos. Use **Copiar prompt IA** para copiar o contexto estruturado ou **Executar Copilot** para iniciar o GitHub Copilot CLI, acompanhar a saída e solicitar cancelamento.
+
+## Executar com IA
+
+1. Instale e autentique o [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/copilot-surfaces/copilot-cli) para que o comando `copilot` funcione no PowerShell.
+2. Crie ou edite uma tarefa e marque todos os projetos envolvidos.
+3. Clique em **Executar Copilot** e leia a confirmação de permissões antes de continuar.
+4. Acompanhe a saída. Ao terminar, revise os diffs e valide os testes manualmente.
 
 ## Segurança e escopo do MVP
 - O servidor escuta apenas em `127.0.0.1`.
