@@ -22,7 +22,7 @@ projeto/.devdesk/tasks/TASK-001.md
 ```
 
 ## Formato das tarefas
-Cada tarefa inclui ID, título, descrição, prioridade, status, critérios de aceitação e datas de criação/atualização.
+Cada tarefa inclui ID, título, descrição, prioridade, status, critérios de aceitação, datas e uma lista de projetos-alvo. Ao criar ou editar uma tarefa, selecione os projetos envolvidos; use **Copiar prompt IA** para preparar um prompt com os caminhos e critérios. A execução automática pelo CLI é uma próxima etapa.
 
 ## Segurança e escopo do MVP
 - O servidor escuta apenas em `127.0.0.1`.
