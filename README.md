@@ -4,7 +4,7 @@ Aplicação local com Node.js e interface web para listar projetos dentro de uma
 
 ## Requisitos
 - Node.js 20 ou superior
-- Windows, macOS ou Linux
+- Windows 11 (o seletor nativo de pastas e a execução integrada do Copilot CLI usam PowerShell)
 
 ## Iniciar
 1. Clone este repositório.
@@ -12,7 +12,7 @@ Aplicação local com Node.js e interface web para listar projetos dentro de uma
 3. Execute `npm install`.
 4. Execute `npm start`.
 5. Abra http://127.0.0.1:3030.
-6. Informe o caminho absoluto da pasta que contém seus projetos, por exemplo `C:\\Users\\SeuUsuario\\Documents\\Projetos`.
+6. Clique em **Escolher pasta…** e selecione a pasta que contém seus projetos.
 
 O DevDesk lista as subpastas diretas dessa pasta. Ao selecionar um projeto e criar uma tarefa, ele cria/atualiza:
 
@@ -22,11 +22,11 @@ projeto/.devdesk/tasks/TASK-001.md
 ```
 
 ## Formato das tarefas
-Cada tarefa inclui ID, título, descrição, prioridade, status, critérios de aceitação, datas e uma lista de projetos-alvo. Ao criar ou editar uma tarefa, selecione os projetos envolvidos; use **Copiar prompt IA** para preparar um prompt com os caminhos e critérios. A execução automática pelo CLI é uma próxima etapa.
+Cada tarefa inclui ID, título, descrição, prioridade, status, critérios de aceitação, datas e uma lista de projetos-alvo. Ao criar ou editar uma tarefa, selecione todos os repositórios envolvidos. Use **Copiar prompt IA** para copiar o contexto estruturado ou **Executar Copilot** para iniciar o GitHub Copilot CLI, acompanhar a saída e solicitar cancelamento.
 
 ## Segurança e escopo do MVP
 - O servidor escuta apenas em `127.0.0.1`.
 - A raiz de projetos precisa ser configurada explicitamente na interface.
 - O servidor só permite operações em projetos que sejam subpastas diretas da raiz configurada.
-- O MVP grava arquivos Markdown; ainda não executa tarefas com Copilot nem edita código-fonte dos projetos.
+- O DevDesk inicia o Copilot CLI apenas após confirmação explícita. A execução concede ao agente as ferramentas `write` e `shell`, além dos diretórios selecionados; o shell pode executar comandos com as permissões do usuário. Isso **não é uma sandbox**. Execute apenas em projetos confiáveis e revise os diffs.
 - Faça backup dos projetos importantes e use apenas em pastas nas quais você confia.
