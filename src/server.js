@@ -6,6 +6,7 @@ import { execFile, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
+import { getProvider, listProviders } from './agents/providers.js';
 
 const app = express();
 const PORT = Number(process.env.PORT || 3030);
@@ -90,6 +91,7 @@ async function syncIndex(project) {
 }
 
 app.get('/api/config', (_req, res) => res.json({ projectsRoot, home: os.homedir() }));
+app.get('/api/agents', (_req, res) => res.json({ providers: listProviders() }));
 
 // Abre o seletor nativo de pastas do Windows.
 app.post('/api/select-folder', async (_req, res) => {
@@ -223,6 +225,9 @@ app.post('/api/projects/:project/tasks/:id/run', async (req, res) => {
   try {
     if (process.platform !== 'win32') return res.status(501).json({ error: 'A execução do Copilot CLI pelo DevDesk está inicialmente disponível apenas no Windows.' });
     if (req.body?.confirm !== true) return res.status(400).json({ error: 'Confirmação explícita necessária.' });
+    const provider = getProvider(String(req.body?.provider || 'copilot-cli'));
+    if (!provider) return res.status(400).json({ error: 'Provedor de IA desconhecido.' });
+    if (!provider.platforms.includes(process.platform)) return res.status(501).json({ error: provider.name + ' não está disponível nesta plataforma.' });
     const { tasksDir } = await projectInfo(req.params.project);
     const id = String(req.params.id).toUpperCase();
     if (!/^TASK-[A-Z0-9-]+$/.test(id)) return res.status(400).json({ error: 'ID inválido.' });
@@ -263,20 +268,19 @@ app.post('/api/projects/:project/tasks/:id/run', async (req, res) => {
     const tempBase = path.join(os.tmpdir(), 'devdesk-' + runId);
     configPath = tempBase + '.json';
     scriptPath = tempBase + '.ps1';
-    await fs.writeFile(configPath, JSON.stringify({ prompt, targetPaths: projectPaths.map(p => p.path) }), 'utf8');
+    const cliArgs = provider.buildCliArguments({ prompt, targetPaths: projectPaths.map(p => p.path) });
+    await fs.writeFile(configPath, JSON.stringify({ args: cliArgs }), 'utf8');
     const psScript = [
       'param([string]$ConfigPath)',
       '$ErrorActionPreference = "Stop"',
       '$config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json',
       'if (-not (Get-Command copilot -ErrorAction SilentlyContinue)) { [Console]::Error.WriteLine("GitHub Copilot CLI não encontrado. Instale e autentique o comando copilot."); exit 127 }',
-      '$cliArgs = @("-p", [string]$config.prompt, "-s")',
-      'foreach ($dir in $config.targetPaths) { $cliArgs += "--add-dir=$dir" }',
-      '$cliArgs += "--allow-tool=write,shell"',
+      '$cliArgs = @($config.args | ForEach-Object { [string]$_ })',
       '& copilot @cliArgs',
       'exit $LASTEXITCODE'
     ].join('\r\n');
     await fs.writeFile(scriptPath, '\uFEFF' + psScript, 'utf8');
-    const run = { id: runId, project: req.params.project, taskId: id, provider: 'copilot-cli', status: 'running', startedAt: new Date().toISOString(), finishedAt: null, exitCode: null, log: '', process: null, configPath, scriptPath };
+    const run = { id: runId, project: req.params.project, taskId: id, provider: provider.id, status: 'running', startedAt: new Date().toISOString(), finishedAt: null, exitCode: null, log: '', process: null, configPath, scriptPath };
     agentRuns.set(runId, run);
     const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, configPath], { windowsHide: true, cwd: projectPaths.find(p => p.name === req.params.project).path, stdio: ['ignore', 'pipe', 'pipe'] });
     run.process = child;
