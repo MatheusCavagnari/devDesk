@@ -269,14 +269,15 @@ app.post('/api/projects/:project/tasks/:id/run', async (req, res) => {
     configPath = tempBase + '.json';
     scriptPath = tempBase + '.ps1';
     const cliArgs = provider.buildCliArguments({ prompt, targetPaths: projectPaths.map(p => p.path) });
-    await fs.writeFile(configPath, JSON.stringify({ args: cliArgs }), 'utf8');
+    await fs.writeFile(configPath, JSON.stringify({ command: provider.command, args: cliArgs }), 'utf8');
     const psScript = [
       'param([string]$ConfigPath)',
       '$ErrorActionPreference = "Stop"',
       '$config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json',
-      'if (-not (Get-Command copilot -ErrorAction SilentlyContinue)) { [Console]::Error.WriteLine("GitHub Copilot CLI não encontrado. Instale e autentique o comando copilot."); exit 127 }',
+      '$command = [string]$config.command',
+      'if (-not (Get-Command $command -ErrorAction SilentlyContinue)) { [Console]::Error.WriteLine("CLI não encontrado: " + $command + ". Instale e autentique o agente selecionado."); exit 127 }',
       '$cliArgs = @($config.args | ForEach-Object { [string]$_ })',
-      '& copilot @cliArgs',
+      '& $command @cliArgs',
       'exit $LASTEXITCODE'
     ].join('\r\n');
     await fs.writeFile(scriptPath, '\uFEFF' + psScript, 'utf8');
