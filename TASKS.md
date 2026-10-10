@@ -11,7 +11,8 @@ Este documento registra o que falta para evoluir o MVP atual. Os status são con
 - [ ] Instalar dependências e executar o projeto localmente.
 - [ ] Fazer testes manuais e automatizados.
 - [ ] Revisar segurança, persistência de configuração e tratamento de erros.
-- [ ] Integrar fluxo de execução de tarefas com GitHub Copilot no VS Code.
+- [ ] Implementar execução de tarefas por agentes de IA.
+- [ ] Permitir que uma tarefa trabalhe com vários projetos/repositórios.
 
 ## Prioridade P0 — Validar e corrigir o MVP
 
@@ -21,18 +22,22 @@ Este documento registra o que falta para evoluir o MVP atual. Os status são con
 - [ ] **TASK-004 — Persistir a configuração da pasta raiz.** Guardar a configuração localmente com tratamento de caminho inexistente e opção para alterar/remover a pasta.
 - [ ] **TASK-005 — Melhorar edição e sincronização das tarefas.** Garantir que critérios de aceitação marcados sejam preservados, IDs nunca sejam reutilizados e edições externas em Markdown sejam tratadas de forma previsível.
 
-## Prioridade P1 — Usabilidade
+## Prioridade P0 — Integração com agentes de IA e múltiplos projetos
+
+- [ ] **TASK-017 — Definir e documentar a arquitetura de execução de agentes.** Criar uma interface de provider/adaptador, separar execução de tarefas da gestão de tarefas e documentar ciclo de vida, logs, erros e cancelamento. Referência: `docs/agent-integration.md`.
+- [ ] **TASK-018 — Permitir selecionar múltiplos projetos em uma tarefa.** Manter um projeto principal e uma lista de projetos relacionados; persistir os alvos no Markdown sem criar cópias divergentes da mesma tarefa.
+- [ ] **TASK-019 — Criar o executor de processos local.** Iniciar ferramentas CLI com argumentos separados (sem concatenar entrada do usuário em comandos shell), diretório de trabalho explícito, captura de saída, status, cancelamento e tratamento de timeout.
+- [ ] **TASK-020 — Implementar o provider GitHub Copilot CLI.** Detectar se o CLI está instalado/autenticado, construir um prompt estruturado, conceder acesso apenas aos diretórios selecionados e não habilitar permissões amplas automaticamente.
+- [ ] **TASK-021 — Criar a interface de execução.** Adicionar ação “Executar com IA”, escolha do provider, seleção de projetos-alvo, confirmação antes de iniciar e visualização de logs/resultado.
+- [ ] **TASK-022 — Persistir histórico das execuções.** Guardar provider, tarefa, projetos-alvo, horários, resultado, código de saída e caminho do log, sem registrar segredos.
+- [ ] **TASK-023 — Preparar o contrato para outros providers.** Documentar como adicionar outras CLIs/agentes sem acoplar a interface ao Copilot; adicionar um provider novo somente depois que o contrato estiver testado.
+
+## Prioridade P1 — Usabilidade e confiabilidade
 
 - [ ] **TASK-006 — Melhorar a interface e os estados de carregamento.** Adicionar filtros por status/prioridade, busca, contadores, confirmação de exclusão mais clara e feedback consistente.
 - [ ] **TASK-007 — Adicionar documentação de uso e solução de problemas.** Explicar configuração, formato dos arquivos, backup, erros comuns e como contribuir.
 - [ ] **TASK-008 — Adicionar logs e diagnóstico local.** Registrar erros úteis sem expor conteúdo desnecessário dos projetos.
-
-## Prioridade P1 — Fluxo com GitHub Copilot / VS Code
-
-- [ ] **TASK-009 — Definir como o Copilot consumirá as tarefas.** Avaliar instruções em Markdown, prompts/copilot instructions e comandos acionados pelo usuário; não presumir que arquivos Markdown executam tarefas sozinhos.
-- [ ] **TASK-010 — Preparar um formato de tarefa amigável para agentes.** Incluir contexto, objetivo, escopo, arquivos relevantes, critérios de aceitação, restrições e passos de verificação.
-- [ ] **TASK-011 — Criar ação para preparar/copiar o prompt da tarefa.** Permitir abrir a tarefa ou copiar um prompt estruturado para usar no Copilot Chat, sem executar comandos arbitrários automaticamente.
-- [ ] **TASK-012 — Integrar com o VS Code de forma segura.** Investigar extensão ou protocolo suportado; exigir confirmação antes de executar ações que alterem código ou rodem comandos.
+- [ ] **TASK-024 — Rever segurança do agente e recuperação de falhas.** Validar novamente todos os caminhos selecionados, limitar permissões, não permitir acesso a diretórios não selecionados por configuração do DevDesk, lidar com encerramento do servidor e não executar agentes automaticamente ao abrir uma tarefa.
 
 ## Prioridade P2 — Evolução
 
@@ -41,18 +46,19 @@ Este documento registra o que falta para evoluir o MVP atual. Os status são con
 - [ ] **TASK-015 — Adicionar importação e exportação/backup das tarefas.**
 - [ ] **TASK-016 — Preparar empacotamento simples para Windows.** Avaliar inicialização com um comando, atalho ou instalador, mantendo o serviço restrito à máquina local.
 
-## Critérios para considerar o MVP pronto
+## Critérios para considerar a integração inicial pronta
 
-- A instalação e inicialização funcionam em uma máquina Windows limpa com Node.js compatível.
-- É possível configurar uma raiz, selecionar um projeto e criar, editar e excluir tarefas.
-- Os arquivos individuais e o índice permanecem consistentes após reiniciar o servidor.
-- Caminhos inválidos e entradas malformadas não permitem escrever fora da pasta de projeto.
-- Existe cobertura de testes para os fluxos críticos.
-- A documentação distingue claramente gerenciamento de tarefas e execução real pelo Copilot.
+- Uma tarefa pode indicar um projeto principal e zero ou mais projetos adicionais.
+- Os projetos-alvo ficam persistidos na tarefa e são revalidados antes de cada execução.
+- O Copilot CLI pode ser iniciado de forma programática com um prompt estruturado, sem passar o texto do usuário por interpolação de shell.
+- A execução exibe saída, status e erros; é possível cancelar uma execução.
+- O agente só recebe acesso aos diretórios selecionados e nenhuma permissão ampla é habilitada silenciosamente.
+- O DevDesk não afirma que uma tarefa foi concluída só porque o processo terminou; o resultado precisa ser revisado.
+- Há testes para seleção de projetos, construção do comando e validação dos caminhos.
 
 ## Convenções
 
 - Atualize este documento quando uma tarefa começar ou terminar.
-- Cada tarefa deve ter um arquivo em `.devdesk/tasks/`.
+- Cada tarefa deve ter um arquivo em `.devdesk/tasks/` no projeto ao qual pertence.
 - Use os status: `backlog`, `todo`, `in_progress`, `blocked`, `done`.
 - Não marque como concluído sem implementação e verificação correspondente.
