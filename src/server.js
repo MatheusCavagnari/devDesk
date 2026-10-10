@@ -225,6 +225,7 @@ app.post('/api/projects/:project/tasks/:id/run', async (req, res) => {
   try {
     if (process.platform !== 'win32') return res.status(501).json({ error: 'A execução do Copilot CLI pelo DevDesk está inicialmente disponível apenas no Windows.' });
     if (req.body?.confirm !== true) return res.status(400).json({ error: 'Confirmação explícita necessária.' });
+    if ([...agentRuns.values()].some(existing => existing.status === 'running')) return res.status(409).json({ error: 'Já existe uma execução de IA em andamento. Aguarde ou cancele antes de iniciar outra.' });
     const provider = getProvider(String(req.body?.provider || 'copilot-cli'));
     if (!provider) return res.status(400).json({ error: 'Provedor de IA desconhecido.' });
     if (!provider.platforms.includes(process.platform)) return res.status(501).json({ error: provider.name + ' não está disponível nesta plataforma.' });
