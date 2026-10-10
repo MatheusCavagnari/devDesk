@@ -24,6 +24,8 @@ Este documento registra o que falta para evoluir o MVP atual. Os status são con
 
 ## Prioridade P0 — Integração com agentes de IA e múltiplos projetos
 
+**Implementação inicial no código:** seleção/persistência de vários projetos por tarefa, registro de providers, cópia de prompt estruturado e endpoint de execução do Copilot CLI com saída e cancelamento. Os itens permanecem pendentes até testes manuais no Windows, revisão de falhas e validação dos limites de permissão.
+
 - [ ] **TASK-017 — Definir e documentar a arquitetura de execução de agentes.** Criar uma interface de provider/adaptador, separar execução de tarefas da gestão de tarefas e documentar ciclo de vida, logs, erros e cancelamento. Referência: `docs/agent-integration.md`.
 - [ ] **TASK-018 — Permitir selecionar múltiplos projetos em uma tarefa.** Manter um projeto principal e uma lista de projetos relacionados; persistir os alvos no Markdown sem criar cópias divergentes da mesma tarefa.
 - [ ] **TASK-019 — Criar o executor de processos local.** Iniciar ferramentas CLI com argumentos separados (sem concatenar entrada do usuário em comandos shell), diretório de trabalho explícito, captura de saída, status, cancelamento e tratamento de timeout.
