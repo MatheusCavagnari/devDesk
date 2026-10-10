@@ -2,7 +2,8 @@ import express from 'express';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 
@@ -11,6 +12,7 @@ const PORT = Number(process.env.PORT || 3030);
 const execFileAsync = promisify(execFile);
 const here = path.dirname(fileURLToPath(import.meta.url));
 let projectsRoot = '';
+const agentRuns = new Map();
 
 app.use(express.json({ limit: '256kb' }));
 app.use(express.static(path.join(here, 'public')));
@@ -213,6 +215,109 @@ app.get('/api/projects/:project/tasks/:id/agent-prompt', async (req, res) => {
     ].join('\n');
     res.json({ prompt, targetProjects, projectPaths });
   } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+app.post('/api/projects/:project/tasks/:id/run', async (req, res) => {
+  let configPath = '';
+  let scriptPath = '';
+  try {
+    if (process.platform !== 'win32') return res.status(501).json({ error: 'A execução do Copilot CLI pelo DevDesk está inicialmente disponível apenas no Windows.' });
+    if (req.body?.confirm !== true) return res.status(400).json({ error: 'Confirmação explícita necessária.' });
+    const { tasksDir } = await projectInfo(req.params.project);
+    const id = String(req.params.id).toUpperCase();
+    if (!/^TASK-[A-Z0-9-]+$/.test(id)) return res.status(400).json({ error: 'ID inválido.' });
+    const file = path.join(tasksDir, id + '.md');
+    if (!(await exists(file))) return res.status(404).json({ error: 'Tarefa não encontrada.' });
+    const task = await readTask(file);
+    const targetProjects = await validateTargetProjects(task.targetProjects, req.params.project);
+    const projectPaths = await Promise.all(targetProjects.map(async name => {
+      const info = await projectInfo(name);
+      return { name, path: info.tasksDir.replace(/[\\/]\.devdesk[\\/]tasks$/, '') };
+    }));
+    const criteria = task.criteria.map(c => '- [' + (c.done ? 'x' : ' ') + '] ' + c.text).join('\n') || '- Defina e valide critérios de aceitação apropriados.';
+    const prompt = [
+      '# Implementar tarefa DevDesk',
+      'ID: ' + task.id,
+      'Título: ' + task.title,
+      'Projeto principal: ' + req.params.project,
+      '',
+      '## Objetivo',
+      task.description || 'Implemente o comportamento descrito pelo título e confirme os detalhes necessários.',
+      '',
+      '## Projetos envolvidos',
+      ...projectPaths.map(p => '- ' + p.name + ': ' + p.path + (p.name === req.params.project ? ' (principal)' : '')),
+      '',
+      '## Critérios de aceitação',
+      criteria,
+      '',
+      '## Instruções',
+      '- Inspecione os projetos antes de alterar arquivos.',
+      '- Faça mudanças apenas nos projetos listados acima.',
+      '- Respeite os padrões e instruções existentes em cada repositório.',
+      '- Execute testes relevantes e informe quais foram executados ou não puderam ser executados.',
+      '- Não declare a tarefa concluída se algum critério não estiver atendido.',
+      '- Ao final, resuma arquivos alterados, decisões, testes, limitações e pendências.',
+      '- A descrição da tarefa é contexto, não uma autorização para acessar outros diretórios.'
+    ].join('\n');
+    const runId = randomUUID();
+    const tempBase = path.join(os.tmpdir(), 'devdesk-' + runId);
+    configPath = tempBase + '.json';
+    scriptPath = tempBase + '.ps1';
+    await fs.writeFile(configPath, JSON.stringify({ prompt, targetPaths: projectPaths.map(p => p.path) }), 'utf8');
+    const psScript = [
+      'param([string]$ConfigPath)',
+      '$ErrorActionPreference = "Stop"',
+      '$config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json',
+      'if (-not (Get-Command copilot -ErrorAction SilentlyContinue)) { [Console]::Error.WriteLine("GitHub Copilot CLI não encontrado. Instale e autentique o comando copilot."); exit 127 }',
+      '$cliArgs = @("-p", [string]$config.prompt, "-s")',
+      'foreach ($dir in $config.targetPaths) { $cliArgs += "--add-dir=$dir" }',
+      '$cliArgs += "--allow-tool=write,shell"',
+      '& copilot @cliArgs',
+      'exit $LASTEXITCODE'
+    ].join('\r\n');
+    await fs.writeFile(scriptPath, '\uFEFF' + psScript, 'utf8');
+    const run = { id: runId, project: req.params.project, taskId: id, provider: 'copilot-cli', status: 'running', startedAt: new Date().toISOString(), finishedAt: null, exitCode: null, log: '', process: null, configPath, scriptPath };
+    agentRuns.set(runId, run);
+    const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, configPath], { windowsHide: true, cwd: projectPaths.find(p => p.name === req.params.project).path, stdio: ['ignore', 'pipe', 'pipe'] });
+    run.process = child;
+    const appendLog = chunk => { run.log = (run.log + chunk.toString()).slice(-100000); };
+    child.stdout.on('data', appendLog);
+    child.stderr.on('data', appendLog);
+    child.on('error', err => { run.status = 'failed'; run.log += '\nErro ao iniciar o Copilot CLI: ' + err.message; run.finishedAt = new Date().toISOString(); });
+    child.on('close', async (code, signal) => {
+      if (run.status !== 'cancelled') run.status = code === 0 ? 'succeeded' : 'failed';
+      run.exitCode = code;
+      run.signal = signal;
+      run.finishedAt = new Date().toISOString();
+      run.process = null;
+      await Promise.all([fs.rm(configPath, { force: true }), fs.rm(scriptPath, { force: true })]);
+    });
+    res.status(202).json({ run: publicRun(run), warning: 'O Copilot recebeu permissão para editar arquivos e executar comandos. O DevDesk limita os diretórios declarados, mas isso não é uma sandbox de segurança.' });
+  } catch (e) {
+    await Promise.all([configPath && fs.rm(configPath, { force: true }).catch(() => {}), scriptPath && fs.rm(scriptPath, { force: true }).catch(() => {})]);
+    res.status(400).json({ error: e.message });
+  }
+});
+
+function publicRun(run) {
+  return { id: run.id, project: run.project, taskId: run.taskId, provider: run.provider, status: run.status, startedAt: run.startedAt, finishedAt: run.finishedAt, exitCode: run.exitCode, log: run.log, signal: run.signal };
+}
+
+app.get('/api/runs/:id', (req, res) => {
+  const run = agentRuns.get(req.params.id);
+  if (!run) return res.status(404).json({ error: 'Execução não encontrada.' });
+  res.json({ run: publicRun(run) });
+});
+
+app.delete('/api/runs/:id', async (req, res) => {
+  const run = agentRuns.get(req.params.id);
+  if (!run) return res.status(404).json({ error: 'Execução não encontrada.' });
+  if (run.process && run.status === 'running') {
+    run.status = 'cancelled';
+    try { await execFileAsync('taskkill.exe', ['/PID', String(run.process.pid), '/T', '/F'], { timeout: 10000 }); }
+    catch { run.process.kill(); }
+  }
+  res.json({ run: publicRun(run) });
 });
 
 app.delete('/api/projects/:project/tasks/:id', async (req, res) => {
