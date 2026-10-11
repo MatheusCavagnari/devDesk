@@ -279,7 +279,7 @@ app.post('/api/projects/:project/tasks/:id/run', async (req, res) => {
     const targetProjects = await validateTargetProjects(task.targetProjects, req.params.project);
     const projectPaths = await Promise.all(targetProjects.map(async name => {
       const info = await projectInfo(name);
-      const projectPath = await fs.realpath(path.dirname(info.tasksDir));
+      const projectPath = await fs.realpath(path.dirname(path.dirname(info.tasksDir)));
       return { name, path: projectPath };
     }));
     const criteria = task.criteria.map(c => '- [' + (c.done ? 'x' : ' ') + '] ' + c.text).join('\n') || '- Defina e valide critérios de aceitação apropriados.';
