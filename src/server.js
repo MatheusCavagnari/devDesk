@@ -15,7 +15,11 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 let projectsRoot = '';
 const configDir = path.join(os.homedir(), '.devdesk');
 const configFile = path.join(configDir, 'config.json');
+const runHistoryFile = path.join(configDir, 'runs.json');
+const MAX_RUN_HISTORY = 100;
+const MAX_PERSISTED_LOG = 20000;
 const agentRuns = new Map();
+let historyWrite = Promise.resolve();
 
 app.use(express.json({ limit: '256kb' }));
 app.use(express.static(path.join(here, 'public')));
@@ -40,6 +44,38 @@ async function loadSavedProjectsRoot() {
   } catch { /* primeira execução ou configuração ainda não salva */ }
 }
 
+function runRecord(run) {
+  return { id: run.id, project: run.project, taskId: run.taskId, provider: run.provider, status: run.status, startedAt: run.startedAt, finishedAt: run.finishedAt, exitCode: run.exitCode, log: String(run.log || '').slice(-MAX_PERSISTED_LOG), signal: run.signal || null };
+}
+
+function persistRunHistory() {
+  const snapshot = [...agentRuns.values()].map(runRecord).sort((a, b) => String(b.startedAt).localeCompare(String(a.startedAt))).slice(0, MAX_RUN_HISTORY);
+  historyWrite = historyWrite.catch(() => {}).then(async () => {
+    await fs.mkdir(configDir, { recursive: true });
+    const temp = runHistoryFile + '.tmp';
+    await fs.writeFile(temp, JSON.stringify(snapshot, null, 2) + '\n', 'utf8');
+    await fs.rename(temp, runHistoryFile);
+  });
+  return historyWrite;
+}
+
+async function loadRunHistory() {
+  try {
+    const saved = JSON.parse(await fs.readFile(runHistoryFile, 'utf8'));
+    if (!Array.isArray(saved)) return;
+    for (const record of saved.slice(0, MAX_RUN_HISTORY)) {
+      if (!record || typeof record.id !== 'string' || typeof record.startedAt !== 'string') continue;
+      const interrupted = record.status === 'running';
+      agentRuns.set(record.id, { ...record, status: interrupted ? 'interrupted' : record.status, finishedAt: interrupted ? new Date().toISOString() : record.finishedAt, log: String(record.log || '').slice(-MAX_PERSISTED_LOG) + (interrupted ? '\nDevDesk foi reiniciado durante esta execução; o estado do processo não pode ser recuperado.' : ''), process: null, configPath: '', scriptPath: '' });
+    }
+    if ([...agentRuns.values()].some(run => run.status === 'interrupted')) await persistRunHistory();
+  } catch { /* primeira execução ou histórico ainda inexistente */ }
+}
+
+function scheduleRunHistorySave(run) {
+  if (run.persistTimer) clearTimeout(run.persistTimer);
+  run.persistTimer = setTimeout(() => { run.persistTimer = null; persistRunHistory().catch(error => console.error('Falha ao salvar histórico do DevDesk:', error.message)); }, 500);
+}
 async function projectInfo(name) {
   if (!projectsRoot) throw new Error('Configure a pasta raiz primeiro.');
   const clean = safeName(name);
@@ -111,6 +147,22 @@ async function syncIndex(project) {
 
 app.get('/api/config', (_req, res) => res.json({ projectsRoot, home: os.homedir() }));
 app.get('/api/agents', (_req, res) => res.json({ providers: listProviders() }));
+
+app.get('/api/agents/status', async (_req, res) => {
+  const statuses = await Promise.all(listProviders().map(async info => {
+    const provider = getProvider(info.id);
+    if (!provider.platforms.includes(process.platform)) return { id: provider.id, name: provider.name, installed: false, supported: false, message: 'Não suportado nesta plataforma.' };
+    try {
+      const result = await execFileAsync(provider.command, ['--version'], { windowsHide: true, timeout: 6000, maxBuffer: 1024 * 1024 });
+      const version = String(result.stdout || result.stderr || '').trim().split(/\r?\n/)[0].slice(0, 180);
+      return { id: provider.id, name: provider.name, installed: true, supported: true, version, message: 'CLI encontrado. Autenticação não verificada.' };
+    } catch (error) {
+      const missing = error.code === 'ENOENT';
+      return { id: provider.id, name: provider.name, installed: false, supported: true, message: missing ? 'Não encontrado no PATH.' : (error.killed ? 'O comando de versão excedeu o tempo limite.' : 'Não foi possível consultar a versão.') };
+    }
+  }));
+  res.json({ agents: statuses });
+}
 
 // Abre o seletor nativo de pastas do Windows.
 app.post('/api/select-folder', async (_req, res) => {
@@ -311,10 +363,10 @@ app.post('/api/projects/:project/tasks/:id/run', async (req, res) => {
     agentRuns.set(runId, run);
     const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, configPath], { windowsHide: true, cwd: projectPaths.find(p => p.name === req.params.project).path, stdio: ['ignore', 'pipe', 'pipe'] });
     run.process = child;
-    const appendLog = chunk => { run.log = (run.log + chunk.toString()).slice(-100000); };
+    const appendLog = chunk => { run.log = (run.log + chunk.toString()).slice(-MAX_PERSISTED_LOG); scheduleRunHistorySave(run); };
     child.stdout.on('data', appendLog);
     child.stderr.on('data', appendLog);
-    child.on('error', err => { run.status = 'failed'; run.log += '\nErro ao iniciar o Copilot CLI: ' + err.message; run.finishedAt = new Date().toISOString(); });
+    child.on('error', err => { run.status = 'failed'; run.log += '\nErro ao iniciar o agente CLI: ' + err.message; run.finishedAt = new Date().toISOString(); persistRunHistory().catch(error => console.error('Falha ao salvar histórico do DevDesk:', error.message)); });
     child.on('close', async (code, signal) => {
       if (run.status !== 'cancelled') run.status = code === 0 ? 'succeeded' : 'failed';
       run.exitCode = code;
@@ -322,6 +374,8 @@ app.post('/api/projects/:project/tasks/:id/run', async (req, res) => {
       run.finishedAt = new Date().toISOString();
       run.process = null;
       await Promise.all([fs.rm(configPath, { force: true }), fs.rm(scriptPath, { force: true })]);
+      if (run.persistTimer) { clearTimeout(run.persistTimer); run.persistTimer = null; }
+      persistRunHistory().catch(error => console.error('Falha ao salvar histórico do DevDesk:', error.message));
     });
     res.status(202).json({ run: publicRun(run), warning: 'O Copilot recebeu permissão para editar arquivos e executar comandos. O DevDesk limita os diretórios declarados, mas isso não é uma sandbox de segurança.' });
   } catch (e) {
@@ -333,6 +387,11 @@ app.post('/api/projects/:project/tasks/:id/run', async (req, res) => {
 function publicRun(run) {
   return { id: run.id, project: run.project, taskId: run.taskId, provider: run.provider, status: run.status, startedAt: run.startedAt, finishedAt: run.finishedAt, exitCode: run.exitCode, log: run.log, signal: run.signal };
 }
+
+app.get('/api/runs', (_req, res) => {
+  const runs = [...agentRuns.values()].map(publicRun).sort((a, b) => String(b.startedAt).localeCompare(String(a.startedAt))).slice(0, 30);
+  res.json({ runs, maxHistory: MAX_RUN_HISTORY });
+});
 
 app.get('/api/runs/:id', (req, res) => {
   const run = agentRuns.get(req.params.id);
@@ -363,6 +422,6 @@ app.delete('/api/projects/:project/tasks/:id', async (req, res) => {
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
-loadSavedProjectsRoot().finally(() => {
-  app.listen(PORT, '127.0.0.1', () => console.log(`DevDesk disponível em http://127.0.0.1:${PORT}`));
+Promise.all([loadSavedProjectsRoot(), loadRunHistory()]).finally(() => {
+  app.listen(PORT, '127.0.0.1', () => console.log('DevDesk disponível em http://127.0.0.1:' + PORT));
 });
