@@ -21,7 +21,8 @@ export function createLocalRequestGuard({ port }) {
         return res.status(403).json({ error: 'Origem não permitida para alteração de dados.' });
       }
       const contentType = String(req.headers['content-type'] || '').toLowerCase();
-      if (req.path.startsWith('/api/') && !contentType.startsWith('application/json')) {
+      const hasBody = Number(req.headers['content-length'] || 0) > 0 || Boolean(req.headers['transfer-encoding']);
+      if (req.path.startsWith('/api/') && hasBody && !contentType.startsWith('application/json')) {
         return res.status(415).json({ error: 'As alterações da API exigem Content-Type application/json.' });
       }
     }
