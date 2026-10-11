@@ -13,7 +13,7 @@ O projeto está sendo organizado como um **monólito modular**, sem microserviç
 - [x] Gravação das tarefas em Markdown dentro de cada projeto.
 - [x] Índice `.devdesk/TASKS.md` gerado a partir dos arquivos de tarefa.
 - [ ] Instalar dependências e executar o projeto localmente.
-- [ ] Fazer testes manuais e automatizados.
+- [ ] Completar testes de integração HTTP e testes manuais.
 - [ ] Validar a persistência de configuração, segurança e tratamento de erros.
 - [ ] Testar manualmente a execução dos agentes de IA no Windows.
 - [ ] Validar tarefas multi-projeto de ponta a ponta.
@@ -21,7 +21,7 @@ O projeto está sendo organizado como um **monólito modular**, sem microserviç
 ## Prioridade P0 — Validar e corrigir o MVP
 
 - [ ] **TASK-001 — Executar e validar o projeto localmente.** Instalar dependências, iniciar o servidor e testar o fluxo principal em Windows.
-- [ ] **TASK-002 — Criar testes automatizados.** Cobrir configuração da raiz, CRUD de tarefas, validações, geração dos arquivos Markdown e sincronização do índice.
+- [ ] **TASK-002 — Completar testes automatizados.** Já há testes unitários de executor, providers, segurança local, validação de diretórios, critérios e IDs; faltam testes de integração HTTP para configuração, CRUD e sincronização do índice.
 - [ ] **TASK-003 — Corrigir robustez e validações de arquivos.** Adicionadas validação de nomes/caminhos de projetos, rejeição de links simbólicos nas pastas controladas pelo DevDesk e proteção básica contra Host/Origin inesperados. Ainda falta revisão de segurança ponta a ponta e testes HTTP.
 - [x] **TASK-004 — Persistir a configuração da pasta raiz.** A pasta selecionada é salva em `~/.devdesk/config.json` e recarregada ao iniciar; ainda falta testar e adicionar uma opção explícita para remover a pasta.
 - [ ] **TASK-005 — Melhorar edição e sincronização das tarefas.** Critérios marcados são preservados quando o texto não muda, e a geração de IDs usa sequência persistente para não reutilizar IDs excluídos após a adoção do novo mecanismo. Ainda falta testar edição externa em Markdown.
@@ -30,13 +30,13 @@ O projeto está sendo organizado como um **monólito modular**, sem microserviç
 
 **Implementado no código, aguardando validação local:** seleção e persistência de vários projetos por tarefa; registro de providers com GitHub Copilot CLI e OpenAI Codex CLI; seletor de agente na interface; execução de processo, saída, status e cancelamento; prompt estruturado; persistência da pasta raiz em `~/.devdesk/config.json`. Não foi possível executar os testes ou validar os comandos CLI neste ambiente.
 
-- [x] **TASK-017 — Definir e documentar a arquitetura de execução de agentes.** Existe um registro inicial de providers em `src/agents/providers.js`; a arquitetura e as limitações estão descritas em `docs/agent-integration.md`. O contrato ainda precisa evoluir com detecção de disponibilidade e testes.
+- [x] **TASK-017 — Definir e documentar a arquitetura de execução de agentes.** Existe um registro inicial de providers em `src/agents/providers.js`; a arquitetura e as limitações estão descritas em `docs/agent-integration.md`. O contrato comum agora valida metadados e argumentos de linha de comando; detecção de autenticação e testes com os CLIs reais ainda faltam.
 - [x] **TASK-018 — Permitir selecionar múltiplos projetos em uma tarefa.** A interface permite selecionar vários projetos e os alvos são persistidos no Markdown canônico. A validação ponta a ponta ainda está pendente.
 - [ ] **TASK-019 — Robustecer o executor de processos local.** O ciclo de vida foi extraído para `src/execution/run-manager.js`, com reserva contra concorrência, timeout configurável, cancelamento da árvore de processos e persistência. Testes unitários simulados foram adicionados; testes de unidade foram adicionados; a CI está verificando os commits recentes e ainda falta validar o comportamento real dos CLIs no Windows.
 - [ ] **TASK-020 — Validar os providers CLI.** A implementação inicial consulta a versão dos CLIs no Windows, mas ainda não verifica autenticação e precisa de teste real.
 - [x] **TASK-021 — Criar a interface de execução.** Há seletor de provider, seleção de projetos-alvo, confirmação, saída, status e cancelamento; o fluxo ainda precisa ser testado manualmente.
 - [x] **TASK-022 — Persistir histórico das execuções (implementação inicial).** O histórico grava provider, projeto/tarefa, horários, resultado, código de saída e trecho limitado da saída em `~/.devdesk/runs.json`; execuções interrompidas pelo reinício são marcadas como `interrupted`. Falta validar concorrência, recuperação e comportamento em Windows.
-- [x] **TASK-023 — Preparar o contrato para outros providers.** O registro já inclui GitHub Copilot CLI e OpenAI Codex CLI. A compatibilidade real dos comandos e permissões ainda precisa ser validada.
+- [x] **TASK-023 — Preparar o contrato para outros providers.** O registro inclui GitHub Copilot CLI e OpenAI Codex CLI e valida ambos pelo contrato comum em testes. A compatibilidade real dos comandos e permissões ainda precisa ser validada.
 
 - [ ] **TASK-025 — Melhorar o diagnóstico dos agentes.** Mostrar a disponibilidade e versão dos CLIs na interface, distinguir CLI ausente de autenticação pendente e oferecer um diagnóstico acionável. A consulta inicial de versão está implementada, mas precisa ser validada no Windows.
 
