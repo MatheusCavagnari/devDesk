@@ -91,13 +91,25 @@ export class RunManager {
   }
 
   async persist() {
-    const snapshot = [...this.runs.values()]
+    const allRuns = [...this.runs.values()];
+    const activeRuns = allRuns.filter(run => run.status === 'running' || (run.process && !run.finalized));
+    const completedRuns = allRuns
+      .filter(run => !activeRuns.includes(run))
+      .sort((a, b) => String(b.startedAt).localeCompare(String(a.startedAt)));
+    const keepIds = new Set([
+      ...activeRuns.map(run => run.id),
+      ...completedRuns.slice(0, Math.max(0, this.maxHistory - activeRuns.length)).map(run => run.id)
+    ]);
+    for (const run of allRuns) {
+      if (!keepIds.has(run.id)) this.runs.delete(run.id);
+    }
+    const snapshot = allRuns
+      .filter(run => keepIds.has(run.id))
       .map(run => ({
         ...this.publicRun(run),
         log: String(run.log || '').slice(-this.maxLog)
       }))
-      .sort((a, b) => String(b.startedAt).localeCompare(String(a.startedAt)))
-      .slice(0, this.maxHistory);
+      .sort((a, b) => String(b.startedAt).localeCompare(String(a.startedAt)));
     this.historyWrite = this.historyWrite.catch(() => {}).then(async () => {
       await fs.mkdir(this.configDir, { recursive: true });
       const temp = this.historyFile + '.tmp';
@@ -135,7 +147,7 @@ export class RunManager {
       startedAt: new Date().toISOString(), finishedAt: null,
       exitCode: null, log: '', process: null, signal: null,
       configPath: tempBase + '.json', scriptPath: tempBase + '.ps1',
-      timeout: null, persistTimer: null, timedOut: false, finalized: false
+      timeout: null, persistTimer: null, timedOut: false, finalized: false, finalization: null
     };
     this.runs.set(id, run);
 
@@ -174,10 +186,10 @@ export class RunManager {
       }, this.timeoutMs);
 
       child.on('error', error => {
-        this.finalize(run, { error });
+        run.finalization = this.finalize(run, { error });
       });
       child.on('close', (code, signal) => {
-        this.finalize(run, { code, signal });
+        run.finalization = this.finalize(run, { code, signal });
       });
 
       return this.publicRun(run);
