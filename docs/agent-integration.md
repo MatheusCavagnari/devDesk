@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Permitir que uma tarefa criada no DevDesk seja enviada a uma ferramenta de IA instalada localmente, começando pelo GitHub Copilot CLI, sem acoplar toda a aplicação a um fornecedor. Uma tarefa pode envolver mais de um repositório.
+Permitir que uma tarefa criada no DevDesk seja enviada a uma ferramenta de IA instalada localmente, sem acoplar toda a aplicação a um fornecedor. Os primeiros adaptadores no registro são GitHub Copilot CLI e OpenAI Codex CLI. Uma tarefa pode envolver mais de um repositório.
 
 O DevDesk continua sendo um gerenciador local. O agente é um processo externo que pode ler e alterar arquivos; por isso, iniciar a execução deve ser uma ação explícita do usuário.
 
@@ -28,7 +28,7 @@ O backend deve depender de uma interface de provider, e não diretamente de coma
 - cancelamento;
 - resultado final com código de saída e referência ao log.
 
-A implementação inicial usa um registro de providers em `src/agents/providers.js`, com o contrato mínimo de metadados e construção de argumentos do CLI. O processo e o ciclo de vida ficam no backend; um provider novo deve implementar o contrato e seu mecanismo de execução específico sem acoplar a interface ao fornecedor.
+A implementação inicial usa um registro de providers em `src/agents/providers.js`, com metadados, plataforma suportada, executável e construção de argumentos do CLI. O processo e o ciclo de vida ficam no backend; um provider novo deve implementar esse contrato sem acoplar a interface ao fornecedor. Ainda falta adicionar detecção de versão/autenticação, timeout, testes de integração e uma forma mais robusta de acompanhar execuções após reiniciar o servidor.
 
 ## Fluxo de execução
 
@@ -39,7 +39,7 @@ A implementação inicial usa um registro de providers em `src/agents/providers.
 5. A interface mostra o estado e a saída da execução, permite cancelar e apresenta o resultado.
 6. O usuário revisa as alterações no repositório e valida os critérios de aceitação antes de marcar a tarefa como concluída.
 
-Estados sugeridos: `queued`, `starting`, `running`, `succeeded`, `failed`, `cancelled`. O término com código zero não garante que a tarefa foi implementada corretamente.
+Estados usados inicialmente: `running`, `succeeded`, `failed`, `cancelled`. O estado e o log vivem em memória, então execuções não são restauradas após reiniciar o DevDesk. Estados futuros sugeridos: `queued`, `starting` e histórico persistido. O término com código zero não garante que a tarefa foi implementada corretamente.
 
 ## Prompt estruturado
 
@@ -55,6 +55,23 @@ Cada execução deve incluir:
 - formato de resumo final: arquivos alterados, decisões, comandos/testes realizados, limitações e pendências.
 
 A descrição da tarefa é dado não confiável: não pode modificar as políticas de segurança do executor nem acrescentar diretórios autorizados sem uma confirmação separada do usuário.
+
+## Providers iniciais
+
+### GitHub Copilot CLI
+
+- Executável: `copilot`.
+- Execução não interativa com prompt estruturado.
+- O adaptador habilita ferramentas `write` e `shell`; isso permite alterações autônomas e execução de comandos. O usuário precisa confirmar antes de iniciar.
+- Os diretórios selecionados são passados como diretórios adicionais do CLI. Isso não deve ser tratado como sandbox completa.
+
+### OpenAI Codex CLI
+
+- Executável: `codex`.
+- Usa `codex exec` com `workspace-write` e define o projeto principal como diretório de trabalho.
+- Projetos secundários são passados como diretórios adicionais.
+- O modo não interativo não garante que a tarefa esteja correta; é obrigatório revisar diffs e testes.
+- A execução real ainda precisa ser validada no Windows, incluindo compatibilidade de argumentos e comportamento da sandbox.
 
 ## GitHub Copilot CLI: primeiro provider
 
