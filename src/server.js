@@ -7,6 +7,9 @@ import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { getProvider, listProviders } from './agents/providers.js';
 import { RunManager } from './execution/run-manager.js';
+import { createLocalRequestGuard } from './security/local-request-guard.js';
+import { resolveProjectDirectories } from './security/project-paths.js';
+import { normalizeCriteria, nextTaskId } from './domain/tasks/task-helpers.js';
 
 const app = express();
 const PORT = Number(process.env.PORT || 3030);
@@ -17,10 +20,10 @@ const configDir = path.join(os.homedir(), '.devdesk');
 const configFile = path.join(configDir, 'config.json');
 const runManager = new RunManager({ timeoutMs: Number(process.env.DEVDESK_RUN_TIMEOUT_MS || 30 * 60 * 1000) });
 
+app.use(createLocalRequestGuard({ port: PORT }));
 app.use(express.json({ limit: '256kb' }));
 app.use(express.static(path.join(here, 'public')));
 
-const safeName = (value) => String(value ?? '').trim().replace(/[<>:"/\\|?*\x00-\x1F]/g, '-').replace(/[. ]+$/g, '').slice(0, 100);
 const exists = async (file) => { try { await fs.access(file); return true; } catch { return false; } };
 
 async function saveProjectsRoot(value) {
@@ -41,22 +44,12 @@ async function loadSavedProjectsRoot() {
 }
 
 async function projectInfo(name) {
-  if (!projectsRoot) throw new Error('Configure a pasta raiz primeiro.');
-  const clean = safeName(name);
-  if (!clean || clean !== name) throw new Error('Nome de projeto inválido.');
-  const folder = path.resolve(projectsRoot, clean);
-  if (path.dirname(folder) !== projectsRoot) throw new Error('Projeto fora da raiz permitida.');
-  const stat = await fs.stat(folder).catch(() => null);
-  if (!stat?.isDirectory()) throw new Error('A pasta do projeto não existe.');
-  const [realRoot, realFolder] = await Promise.all([fs.realpath(projectsRoot), fs.realpath(folder)]);
-  if (path.dirname(realFolder) !== realRoot) throw new Error('O projeto precisa ser uma pasta direta da raiz.');
-  const desk = path.join(realFolder, '.devdesk');
-  return { desk, tasksDir: path.join(desk, 'tasks') };
+  return resolveProjectDirectories(projectsRoot, name);
 }
 
 function toMarkdown(t) {
-  const criteria = String(t.acceptanceCriteria || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean)
-    .map(s => `- [ ] ${s.replace(/^[-*]\s*/, '').replace(/^\[[ xX]\]\s*/, '')}`).join('\n');
+  const criteria = normalizeCriteria(t.acceptanceCriteria, t.previousCriteria || [])
+    .map(c => `- [${c.done ? 'x' : ' '}] ${c.text}`).join('\n');
   return `---
 id: ${t.id}
 title: "${t.title.replace(/"/g, '\\"')}"
@@ -194,12 +187,10 @@ app.post('/api/projects/:project/tasks', async (req, res) => {
     const priority = ['low','medium','high','urgent'].includes(req.body?.priority) ? req.body.priority : 'medium';
     const status = ['backlog','todo','in_progress','blocked','done'].includes(req.body?.status) ? req.body.status : 'backlog';
     await fs.mkdir(tasksDir, { recursive: true });
-    const files = (await fs.readdir(tasksDir)).filter(f => /^TASK-\d+\.md$/i.test(f));
-    const n = files.reduce((max, f) => Math.max(max, Number(f.match(/TASK-(\d+)/i)?.[1] || 0)), 0) + 1;
-    const id = `TASK-${String(n).padStart(3, '0')}`;
+    const id = await nextTaskId(tasksDir);
     const now = new Date().toISOString();
     const targetProjects = await validateTargetProjects(req.body?.targetProjects, req.params.project);
-    const task = { id, project: req.params.project, targetProjects, title, description: String(req.body?.description || '').trim().slice(0, 20000), acceptanceCriteria: String(req.body?.acceptanceCriteria || '').slice(0, 10000), priority, status, createdAt: now, updatedAt: now };
+    const task = { id, project: req.params.project, targetProjects, title, description: String(req.body?.description || '').trim().slice(0, 20000), acceptanceCriteria: String(req.body?.acceptanceCriteria || '').slice(0, 10000), previousCriteria: [], priority, status, createdAt: now, updatedAt: now };
     await fs.writeFile(path.join(tasksDir, id + '.md'), toMarkdown(task), { flag: 'wx' });
     const tasks = await syncIndex(req.params.project);
     res.status(201).json({ tasks, message: id + ' criada.' });
@@ -216,7 +207,7 @@ app.patch('/api/projects/:project/tasks/:id', async (req, res) => {
     const title = String(req.body?.title ?? old.title).trim().slice(0, 180);
     if (!title) return res.status(400).json({ error: 'O título é obrigatório.' });
     const targetProjects = await validateTargetProjects(req.body?.targetProjects ?? old.targetProjects, req.params.project);
-    const t = { id, project: req.params.project, targetProjects, title, description: String(req.body?.description ?? old.description).trim().slice(0, 20000), acceptanceCriteria: String(req.body?.acceptanceCriteria ?? old.criteria.map(c => c.text).join('\n')).slice(0, 10000), priority: ['low','medium','high','urgent'].includes(req.body?.priority) ? req.body.priority : old.priority, status: ['backlog','todo','in_progress','blocked','done'].includes(req.body?.status) ? req.body.status : old.status, createdAt: old.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() };
+    const t = { id, project: req.params.project, targetProjects, title, description: String(req.body?.description ?? old.description).trim().slice(0, 20000), acceptanceCriteria: req.body?.acceptanceCriteria == null ? old.criteria : String(req.body.acceptanceCriteria).slice(0, 10000), previousCriteria: old.criteria, priority: ['low','medium','high','urgent'].includes(req.body?.priority) ? req.body.priority : old.priority, status: ['backlog','todo','in_progress','blocked','done'].includes(req.body?.status) ? req.body.status : old.status, createdAt: old.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() };
     await fs.writeFile(file, toMarkdown(t), 'utf8');
     res.json({ tasks: await syncIndex(req.params.project), message: id + ' atualizada.' });
   } catch (e) { res.status(400).json({ error: e.message }); }
