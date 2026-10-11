@@ -2,7 +2,7 @@
 
 Este documento registra o que falta para evoluir o MVP atual. Os status são conservadores: **Pendente** significa que a implementação ainda precisa ser feita e validada; não consideramos algo concluído apenas porque existe código inicial.
 
-## Estado atual
+## Arquitetura atual\n\nO projeto está sendo organizado como um **monólito modular**, sem microserviços: rotas HTTP, providers CLI, gerenciador de processos, persistência e interface têm responsabilidades separadas. O primeiro corte extraiu o ciclo de vida das execuções para `src/execution/run-manager.js`; os testes unitários simulam processos e não exigem uma conta de IA. Essa refatoração ainda precisa passar pelo CI e por validação manual no Windows.\n\n## Estado atual
 
 - [x] Estrutura inicial Node.js + Express.
 - [x] Interface web inicial para listar projetos e gerenciar tarefas.
@@ -28,7 +28,7 @@ Este documento registra o que falta para evoluir o MVP atual. Os status são con
 
 - [x] **TASK-017 — Definir e documentar a arquitetura de execução de agentes.** Existe um registro inicial de providers em `src/agents/providers.js`; a arquitetura e as limitações estão descritas em `docs/agent-integration.md`. O contrato ainda precisa evoluir com detecção de disponibilidade e testes.
 - [x] **TASK-018 — Permitir selecionar múltiplos projetos em uma tarefa.** A interface permite selecionar vários projetos e os alvos são persistidos no Markdown canônico. A validação ponta a ponta ainda está pendente.
-- [ ] **TASK-019 — Robustecer o executor de processos local.** A inicialização, diretório de trabalho, captura de saída, status e cancelamento existem; ainda faltam timeout explícito, tratamento de encerramento e testes de integração.
+- [ ] **TASK-019 — Robustecer o executor de processos local.** O ciclo de vida foi extraído para `src/execution/run-manager.js`, com reserva contra concorrência, timeout configurável, cancelamento da árvore de processos e persistência. Testes unitários simulados foram adicionados; ainda falta executar a suíte no CI e validar o comportamento real dos CLIs no Windows.
 - [ ] **TASK-020 — Validar os providers CLI.** A implementação inicial consulta a versão dos CLIs no Windows, mas ainda não verifica autenticação e precisa de teste real.
 - [x] **TASK-021 — Criar a interface de execução.** Há seletor de provider, seleção de projetos-alvo, confirmação, saída, status e cancelamento; o fluxo ainda precisa ser testado manualmente.
 - [x] **TASK-022 — Persistir histórico das execuções (implementação inicial).** O histórico grava provider, projeto/tarefa, horários, resultado, código de saída e trecho limitado da saída em `~/.devdesk/runs.json`; execuções interrompidas pelo reinício são marcadas como `interrupted`. Falta validar concorrência, recuperação e comportamento em Windows.
@@ -41,7 +41,7 @@ Este documento registra o que falta para evoluir o MVP atual. Os status são con
 - [ ] **TASK-006 — Melhorar a interface e os estados de carregamento.** Adicionar filtros por status/prioridade, busca, contadores, confirmação de exclusão mais clara e feedback consistente.
 - [ ] **TASK-007 — Adicionar documentação de uso e solução de problemas.** Explicar configuração, formato dos arquivos, backup, erros comuns e como contribuir.
 - [ ] **TASK-008 — Adicionar logs e diagnóstico local.** Registrar erros úteis sem expor conteúdo desnecessário dos projetos.
-- [ ] **TASK-024 — Rever segurança do agente e recuperação de falhas.** O histórico sobrevive ao reinício e sinaliza execuções interrompidas; ainda falta validar todos os caminhos, permissões efetivas, encerramento do servidor e não execução automática.
+- [ ] **TASK-024 — Rever segurança do agente e recuperação de falhas.** O gerenciador marca execuções em andamento como interrompidas após reinício, e tenta encerrar a árvore do processo em cancelamento/timeout. Ainda falta revisar a segurança de todas as rotas e caminhos, confirmar permissões efetivas dos CLIs e validar o encerramento do servidor no Windows.
 
 ## Prioridade P2 — Evolução
 
