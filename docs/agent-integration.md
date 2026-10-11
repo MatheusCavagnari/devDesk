@@ -28,7 +28,7 @@ O backend deve depender de uma interface de provider, e não diretamente de coma
 - cancelamento;
 - resultado final com código de saída e referência ao log.
 
-A implementação inicial usa um registro de providers em `src/agents/providers.js`, com metadados, plataforma suportada, executável e construção de argumentos do CLI. O processo e o ciclo de vida ficam no backend; um provider novo deve implementar esse contrato sem acoplar a interface ao fornecedor. Ainda falta adicionar detecção de versão/autenticação, timeout, testes de integração e uma forma mais robusta de acompanhar execuções após reiniciar o servidor.
+A implementação inicial usa um registro de providers em `src/agents/providers.js`, com metadados, plataforma suportada, executável e construção de argumentos do CLI. O processo e o ciclo de vida ficam no backend; um provider novo deve implementar esse contrato sem acoplar a interface ao fornecedor. O ciclo de vida foi extraído para `src/execution/run-manager.js`; a rota HTTP valida a tarefa e delega a execução ao gerenciador. A detecção de versão não verifica autenticação e a execução real ainda precisa ser validada no Windows.
 
 ## Fluxo de execução
 
@@ -133,3 +133,16 @@ A CLI pode pedir aprovação interativa para certas ações; a primeira implemen
 - A execução não ocorre sem confirmação explícita.
 - O usuário vê a saída e o resultado real do processo, inclusive erros.
 - Um provider de teste pode validar o ciclo de vida sem exigir conta ou consumo de IA.
+
+## Gerenciador de execução extraído
+
+`src/execution/run-manager.js` é responsável pelo ciclo de vida do processo externo, pela persistência do histórico e por cancelamento. `src/server.js` continua responsável pelas rotas HTTP, validação dos projetos e montagem do prompt, mas não deve controlar diretamente os eventos do processo filho.
+
+- A execução é reservada no mapa síncrono antes da primeira operação assíncrona; isso impede que duas requisições simultâneas passem pela verificação de concorrência.
+- O timeout padrão é de 30 minutos. Pode ser ajustado com a variável `DEVDESK_RUN_TIMEOUT_MS` (milissegundos).
+- Em Windows, o cancelamento/timeout tenta encerrar a árvore de processos com `taskkill /T /F`; se isso falhar, tenta encerrar o processo filho.
+- O encerramento é idempotente para evitar gravação dupla quando chegam eventos `error` e `close`.
+- Um processo ainda em execução quando o servidor reinicia é registrado como `interrupted`; não é reiniciado automaticamente.
+- Os testes unitários usam um processo simulado, sem exigir CLIs ou consumo de IA. Eles cobrem concorrência, timeout, cancelamento e recuperação de histórico.
+
+Esses testes automatizados não substituem a validação manual com os CLIs instalados em Windows. O timeout também não equivale a sandbox: a execução do CLI ainda ocorre com as permissões do usuário.
