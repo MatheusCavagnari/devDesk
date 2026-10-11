@@ -13,7 +13,7 @@ O projeto está sendo organizado como um **monólito modular**, sem microserviç
 - [x] Gravação das tarefas em Markdown dentro de cada projeto.
 - [x] Índice `.devdesk/TASKS.md` gerado a partir dos arquivos de tarefa.
 - [ ] Instalar dependências e executar o projeto localmente.
-- [ ] Completar testes de integração HTTP e testes manuais.
+- [ ] Completar validação manual no Windows e testes dos CLIs reais.
 - [ ] Validar a persistência de configuração, segurança e tratamento de erros.
 - [ ] Testar manualmente a execução dos agentes de IA no Windows.
 - [ ] Validar tarefas multi-projeto de ponta a ponta.
@@ -21,14 +21,14 @@ O projeto está sendo organizado como um **monólito modular**, sem microserviç
 ## Prioridade P0 — Validar e corrigir o MVP
 
 - [ ] **TASK-001 — Executar e validar o projeto localmente.** Instalar dependências, iniciar o servidor e testar o fluxo principal em Windows.
-- [ ] **TASK-002 — Completar testes automatizados.** Já há testes unitários de executor, providers, segurança local, validação de diretórios, critérios e IDs; faltam testes de integração HTTP para configuração, CRUD e sincronização do índice.
-- [ ] **TASK-003 — Corrigir robustez e validações de arquivos.** Adicionadas validação de nomes/caminhos de projetos, rejeição de links simbólicos nas pastas controladas pelo DevDesk e proteção básica contra Host/Origin inesperados. Ainda falta revisão de segurança ponta a ponta e testes HTTP.
+- [x] **TASK-002 — Adicionar testes de integração HTTP para tarefas.** A suíte inicia o servidor real em porta temporária e verifica configuração, listagem de projetos, CRUD, geração de Markdown, índice sincronizado, prompt do agente, validação de caminhos e bloqueio de origem externa. Linux passou no CI; Windows ainda está sendo validado.
+- [ ] **TASK-003 — Completar robustez e validações de arquivos.** A validação de caminhos e a proteção básica Host/Origin foram adicionadas e exercitadas por testes HTTP; ainda falta revisão de segurança ponta a ponta e tratamento de links simbólicos em arquivos de tarefa individuais.
 - [x] **TASK-004 — Persistir a configuração da pasta raiz.** A pasta selecionada é salva em `~/.devdesk/config.json` e recarregada ao iniciar; ainda falta testar e adicionar uma opção explícita para remover a pasta.
-- [ ] **TASK-005 — Melhorar edição e sincronização das tarefas.** Critérios marcados são preservados quando o texto não muda, e a geração de IDs usa sequência persistente para não reutilizar IDs excluídos após a adoção do novo mecanismo. Ainda falta testar edição externa em Markdown.
+- [ ] **TASK-005 — Melhorar edição e sincronização das tarefas.** O CRUD/Markdown foi extraído para `src/repositories/markdown-task-repository.js`, as rotas estão em `src/api/routes/tasks.routes.js`, e testes HTTP cobrem edição, exclusão, índice e preservação de critérios marcados. Ainda falta testar edição externa em Markdown.
 
 ## Prioridade P0 — Integração com agentes de IA e múltiplos projetos
 
-**Implementado no código, aguardando validação local:** seleção e persistência de vários projetos por tarefa; providers Copilot/Codex com contrato mínimo validado por testes; seletor de agente; execução, saída, status, cancelamento e histórico persistido. A suíte automatizada passou no CI para Linux e Windows no commit `fd824198`; os CLIs reais ainda precisam ser validados manualmente.
+**Implementado no código, aguardando validação local:** seleção e persistência de vários projetos por tarefa; providers Copilot/Codex com contrato mínimo validado por testes; seletor de agente; execução, saída, status, cancelamento e histórico persistido. A suíte automatizada passou anteriormente em Linux e Windows; os novos testes HTTP já passaram em Linux no commit `f5de2e8`, enquanto a execução equivalente no Windows ainda está em andamento. Os CLIs reais ainda precisam ser validados manualmente.
 
 - [x] **TASK-017 — Definir e documentar a arquitetura de execução de agentes.** O registro `src/agents/providers.js` usa `src/agents/provider-contract.js` para validar metadados e argumentos de linha de comando. Detecção de autenticação e testes com os CLIs reais ainda faltam.
 - [x] **TASK-018 — Permitir selecionar múltiplos projetos em uma tarefa.** A interface permite selecionar vários projetos e os alvos são persistidos no Markdown canônico. A validação ponta a ponta ainda está pendente.
