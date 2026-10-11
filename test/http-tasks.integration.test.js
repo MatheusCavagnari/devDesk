@@ -146,7 +146,7 @@ test('HTTP: configuração, CRUD de tarefas, Markdown e índice sincronizado', a
   assert.equal(updated.status, 200, JSON.stringify(updated.data));
   assert.equal(updated.data.tasks[0].status, 'in_progress');
   const markdownAfterUpdate = await fs.readFile(taskFile, 'utf8');
-  assert.match(markdownAfterUpdate, /- \[ \] Responder HTTP 200/);
+  assert.match(markdownAfterUpdate, /- \\[x\\] Responder HTTP 200/);
   assert.match(markdownAfterUpdate, /- \[ \] Cobrir com teste/);
   assert.match(await fs.readFile(path.join(apiDir, '.devdesk', 'TASKS.md'), 'utf8'), /Criar endpoint de saúde v2/);
 
