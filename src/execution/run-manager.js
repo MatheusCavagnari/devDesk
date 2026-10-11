@@ -199,7 +199,9 @@ export class RunManager {
     if (run.finalized) return;
     run.finalized = true;
     if (run.timeout) clearTimeout(run.timeout);
-    if (run.status !== 'cancelled' && !run.timedOut) {
+    if (run.timedOut) {
+      run.status = 'failed';
+    } else if (run.status !== 'cancelled') {
       run.status = error || code !== 0 ? 'failed' : 'succeeded';
     }
     run.exitCode = code;
