@@ -28,7 +28,7 @@ O backend deve depender de uma interface de provider, e não diretamente de coma
 - cancelamento;
 - resultado final com código de saída e referência ao log.
 
-A implementação inicial usa um registro de providers em `src/agents/providers.js`, com metadados, plataforma suportada, executável e construção de argumentos do CLI. O processo e o ciclo de vida ficam no backend; um provider novo deve implementar esse contrato sem acoplar a interface ao fornecedor. O ciclo de vida foi extraído para `src/execution/run-manager.js`; a rota HTTP valida a tarefa e delega a execução ao gerenciador. A detecção de versão não verifica autenticação e a execução real ainda precisa ser validada no Windows.
+O registro de providers fica em `src/agents/providers.js`; `src/agents/provider-contract.js` valida metadados obrigatórios e garante que a construção do comando retorne somente argumentos string. Esse é um contrato mínimo, não ainda um ciclo de vida completo de provider: diagnóstico de autenticação, eventos de execução e cancelamento seguem no backend. O processo e o ciclo de vida ficam em `src/execution/run-manager.js`. O ciclo de vida foi extraído para `src/execution/run-manager.js`; a rota HTTP valida a tarefa e delega a execução ao gerenciador. A detecção de versão não verifica autenticação e a execução real ainda precisa ser validada no Windows.
 
 ## Fluxo de execução
 
@@ -41,6 +41,13 @@ A implementação inicial usa um registro de providers em `src/agents/providers.
 
 Estados de execução incluem `running`, `succeeded`, `failed`, `cancelled` e `interrupted`. O estado e os logs recentes são persistidos em `~/.devdesk/runs.json`; processos não são retomados após reiniciar o DevDesk. O término com código zero não garante que a tarefa foi implementada corretamente.
 
+## Proteção da API local e caminhos
+
+`src/security/local-request-guard.js` valida o cabeçalho Host, bloqueia requisições marcadas pelo navegador como cross-site e rejeita origens não permitidas em operações mutáveis. Corpos enviados à API devem usar `application/json`. Isso reduz riscos de DNS rebinding/CSRF no navegador, mas não é autenticação e não protege contra processos maliciosos já executados na mesma máquina.
+
+`src/security/project-paths.js` resolve projetos como subpastas diretas da raiz configurada e rejeita links simbólicos nas pastas de projeto e nos diretórios `.devdesk`/`tasks`. Essas verificações reduzem escapes acidentais e ataques por links, mas não eliminam condições de corrida no sistema de arquivos nem transformam o CLI em sandbox.
+
+`src/domain/tasks/task-helpers.js` preserva os estados dos critérios quando o texto não muda e mantém uma sequência persistente para novos IDs. Se existiam IDs mais altos que já tinham sido apagados antes da adoção do arquivo de sequência, não há como reconstruir automaticamente esse histórico perdido.
 ## Histórico persistente e diagnóstico inicial
 
 O DevDesk mantém um histórico local em `~/.devdesk/runs.json`, separado dos repositórios. São mantidas até 100 execuções concluídas, além de qualquer execução ativa, com até 20.000 caracteres finais de saída por execução; a memória e o arquivo de histórico são limitados pela mesma política. O frontend exibe as execuções recentes e permite consultar a saída guardada. A gravação usa arquivo temporário e renomeação para reduzir o risco de arquivo parcialmente escrito.
