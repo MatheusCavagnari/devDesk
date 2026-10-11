@@ -52,7 +52,7 @@ function toMarkdown(t) {
     .map(c => `- [${c.done ? 'x' : ' '}] ${c.text}`).join('\n');
   return `---
 id: ${t.id}
-title: "${t.title.replace(/"/g, '\\"')}"
+title: "${String(t.title).replace(/[\\r\\n]+/g, ' ').replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"
 status: ${t.status}
 priority: ${t.priority}
 created: ${t.createdAt}
@@ -182,7 +182,7 @@ app.get('/api/projects/:project/tasks', async (req, res) => {
 app.post('/api/projects/:project/tasks', async (req, res) => {
   try {
     const { tasksDir } = await projectInfo(req.params.project);
-    const title = String(req.body?.title || '').trim().slice(0, 180);
+    const title = String(req.body?.title || '').replace(/[\r\n]+/g, ' ').trim().slice(0, 180);
     if (!title) return res.status(400).json({ error: 'O título é obrigatório.' });
     const priority = ['low','medium','high','urgent'].includes(req.body?.priority) ? req.body.priority : 'medium';
     const status = ['backlog','todo','in_progress','blocked','done'].includes(req.body?.status) ? req.body.status : 'backlog';
@@ -204,7 +204,7 @@ app.patch('/api/projects/:project/tasks/:id', async (req, res) => {
     const file = path.join(tasksDir, id + '.md');
     if (!(await exists(file))) return res.status(404).json({ error: 'Tarefa não encontrada.' });
     const old = await readTask(file);
-    const title = String(req.body?.title ?? old.title).trim().slice(0, 180);
+    const title = String(req.body?.title ?? old.title).replace(/[\r\n]+/g, ' ').trim().slice(0, 180);
     if (!title) return res.status(400).json({ error: 'O título é obrigatório.' });
     const targetProjects = await validateTargetProjects(req.body?.targetProjects ?? old.targetProjects, req.params.project);
     const t = { id, project: req.params.project, targetProjects, title, description: String(req.body?.description ?? old.description).trim().slice(0, 20000), acceptanceCriteria: req.body?.acceptanceCriteria == null ? old.criteria : String(req.body.acceptanceCriteria).slice(0, 10000), previousCriteria: old.criteria, priority: ['low','medium','high','urgent'].includes(req.body?.priority) ? req.body.priority : old.priority, status: ['backlog','todo','in_progress','blocked','done'].includes(req.body?.status) ? req.body.status : old.status, createdAt: old.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() };
