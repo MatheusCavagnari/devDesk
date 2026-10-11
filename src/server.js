@@ -126,8 +126,7 @@ app.post('/api/projects/:project/tasks/:id/run', async (req, res) => {
     if (!provider.platforms.includes(process.platform)) return res.status(501).json({ error: provider.name + ' não está disponível nesta plataforma.' });
 
     const id = String(req.params.id).toUpperCase();
-    const { task } = await taskRepository.getTask(req.params.project, id);
-    const { projectPaths } = await taskRepository.buildAgentPrompt(req.params.project, id);
+    const { prompt, projectPaths } = await taskRepository.buildAgentPrompt(req.params.project, id);
     const targetPaths = projectPaths.map(p => p.path);
     const primaryPath = projectPaths.find(p => p.name === req.params.project)?.path;
     if (!primaryPath) return res.status(400).json({ error: 'Não foi possível resolver o projeto principal.' });
