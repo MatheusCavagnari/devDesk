@@ -41,6 +41,16 @@ A implementação inicial usa um registro de providers em `src/agents/providers.
 
 Estados usados inicialmente: `running`, `succeeded`, `failed`, `cancelled`. O estado e o log vivem em memória, então execuções não são restauradas após reiniciar o DevDesk. Estados futuros sugeridos: `queued`, `starting` e histórico persistido. O término com código zero não garante que a tarefa foi implementada corretamente.
 
+## Histórico persistente e diagnóstico inicial
+
+O DevDesk mantém um histórico local em `~/.devdesk/runs.json`, separado dos repositórios. São mantidas até 100 execuções, com até 20.000 caracteres finais de saída por execução. O frontend exibe as execuções recentes e permite consultar a saída guardada. A gravação usa arquivo temporário e renomeação para reduzir o risco de arquivo parcialmente escrito.
+
+Ao iniciar, se uma execução estiver marcada como `running`, ela é apresentada como `interrupted`: o DevDesk não consegue recuperar o processo filho depois de reiniciar. O histórico não tenta reiniciar tarefas automaticamente.
+
+A rota `GET /api/agents/status` consulta a versão de cada CLI no Windows e a interface informa se o comando foi encontrado. Isso **não verifica autenticação** nem garante que o agente esteja autorizado a executar tarefas; essa confirmação só será possível após validar o fluxo real do CLI.
+
+Os logs podem conter trechos de saída do agente, portanto o arquivo `runs.json` deve ser tratado como dado local potencialmente sensível. Não foram implementadas ainda opções para apagar/exportar o histórico nem rotação configurável.
+
 ## Prompt estruturado
 
 Cada execução deve incluir:
