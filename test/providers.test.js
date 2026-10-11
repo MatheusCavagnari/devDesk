@@ -19,8 +19,9 @@ test('o provider preserva prompt e múltiplos diretórios como argumentos separa
   });
   assert.equal(args[0], '-p');
   assert.equal(args[1], 'Corrigir o frontend e o backend');
-  assert.ok(args.includes('--add-dir=C:\\Projetos\\api principal'));
-  assert.ok(args.includes('--add-dir=C:\\Projetos\\web'));
+  assert.equal(args.filter(arg => arg === '--add-dir').length, 2);
+  assert.ok(args.includes('C:\\Projetos\\api principal'));
+  assert.ok(args.includes('C:\\Projetos\\web'));
   assert.ok(args.includes('--allow-tool=write,shell'));
 });
 
