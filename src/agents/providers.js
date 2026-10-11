@@ -10,7 +10,7 @@ const providers = [
         '-p',
         prompt,
         '-s',
-        ...targetPaths.map(directory => `--add-dir=${directory}`),
+        ...targetPaths.flatMap(directory => ['--add-dir', directory]),
         '--allow-tool=write,shell'
       ];
     }
