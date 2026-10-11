@@ -10,29 +10,29 @@ Este documento registra o que falta para evoluir o MVP atual. Os status são con
 - [x] Índice `.devdesk/TASKS.md` gerado a partir dos arquivos de tarefa.
 - [ ] Instalar dependências e executar o projeto localmente.
 - [ ] Fazer testes manuais e automatizados.
-- [ ] Revisar segurança, persistência de configuração e tratamento de erros.
-- [ ] Implementar execução de tarefas por agentes de IA.
-- [ ] Permitir que uma tarefa trabalhe com vários projetos/repositórios.
+- [ ] Validar a persistência de configuração, segurança e tratamento de erros.
+- [ ] Testar manualmente a execução dos agentes de IA no Windows.
+- [ ] Validar tarefas multi-projeto de ponta a ponta.
 
 ## Prioridade P0 — Validar e corrigir o MVP
 
 - [ ] **TASK-001 — Executar e validar o projeto localmente.** Instalar dependências, iniciar o servidor e testar o fluxo principal em Windows.
 - [ ] **TASK-002 — Criar testes automatizados.** Cobrir configuração da raiz, CRUD de tarefas, validações, geração dos arquivos Markdown e sincronização do índice.
 - [ ] **TASK-003 — Corrigir robustez e validações de arquivos.** Validar caminhos, IDs, entradas longas e erros de leitura/escrita; garantir que operações nunca escapem da raiz configurada.
-- [ ] **TASK-004 — Persistir a configuração da pasta raiz.** Guardar a configuração localmente com tratamento de caminho inexistente e opção para alterar/remover a pasta.
+- [x] **TASK-004 — Persistir a configuração da pasta raiz.** A pasta selecionada é salva em `~/.devdesk/config.json` e recarregada ao iniciar; ainda falta testar e adicionar uma opção explícita para remover a pasta.
 - [ ] **TASK-005 — Melhorar edição e sincronização das tarefas.** Garantir que critérios de aceitação marcados sejam preservados, IDs nunca sejam reutilizados e edições externas em Markdown sejam tratadas de forma previsível.
 
 ## Prioridade P0 — Integração com agentes de IA e múltiplos projetos
 
-**Implementação inicial no código:** seleção/persistência de vários projetos por tarefa, registro de providers, cópia de prompt estruturado e endpoint de execução do Copilot CLI com saída e cancelamento. Os itens permanecem pendentes até testes manuais no Windows, revisão de falhas e validação dos limites de permissão.
+**Implementado no código, aguardando validação local:** seleção e persistência de vários projetos por tarefa; registro de providers com GitHub Copilot CLI e OpenAI Codex CLI; seletor de agente na interface; execução de processo, saída, status e cancelamento; prompt estruturado; persistência da pasta raiz em `~/.devdesk/config.json`. Não foi possível executar os testes ou validar os comandos CLI neste ambiente.
 
-- [ ] **TASK-017 — Definir e documentar a arquitetura de execução de agentes.** Criar uma interface de provider/adaptador, separar execução de tarefas da gestão de tarefas e documentar ciclo de vida, logs, erros e cancelamento. Referência: `docs/agent-integration.md`.
-- [ ] **TASK-018 — Permitir selecionar múltiplos projetos em uma tarefa.** Manter um projeto principal e uma lista de projetos relacionados; persistir os alvos no Markdown sem criar cópias divergentes da mesma tarefa.
+- [x] **TASK-017 — Definir e documentar a arquitetura de execução de agentes.** Existe um registro inicial de providers em `src/agents/providers.js`; a arquitetura e as limitações estão descritas em `docs/agent-integration.md`. O contrato ainda precisa evoluir com detecção de disponibilidade e testes.
+- [x] **TASK-018 — Permitir selecionar múltiplos projetos em uma tarefa.** A interface permite selecionar vários projetos e os alvos são persistidos no Markdown canônico. A validação ponta a ponta ainda está pendente.
 - [ ] **TASK-019 — Criar o executor de processos local.** Iniciar ferramentas CLI com argumentos separados (sem concatenar entrada do usuário em comandos shell), diretório de trabalho explícito, captura de saída, status, cancelamento e tratamento de timeout.
-- [ ] **TASK-020 — Implementar o provider GitHub Copilot CLI.** Detectar se o CLI está instalado/autenticado, construir um prompt estruturado, conceder acesso apenas aos diretórios selecionados e não habilitar permissões amplas automaticamente.
-- [ ] **TASK-021 — Criar a interface de execução.** Adicionar ação “Executar com IA”, escolha do provider, seleção de projetos-alvo, confirmação antes de iniciar e visualização de logs/resultado.
+- [ ] **TASK-020 — Validar o provider GitHub Copilot CLI.** O adaptador inicial está implementado, mas ainda falta detectar/autenticar o CLI com clareza e validar o comando real no Windows.
+- [x] **TASK-021 — Criar a interface de execução.** Há seletor de provider, seleção de projetos-alvo, confirmação, saída, status e cancelamento; o fluxo ainda precisa ser testado manualmente.
 - [ ] **TASK-022 — Persistir histórico das execuções.** Guardar provider, tarefa, projetos-alvo, horários, resultado, código de saída e caminho do log, sem registrar segredos.
-- [ ] **TASK-023 — Preparar o contrato para outros providers.** Documentar como adicionar outras CLIs/agentes sem acoplar a interface ao Copilot; adicionar um provider novo somente depois que o contrato estiver testado.
+- [x] **TASK-023 — Preparar o contrato para outros providers.** O registro já inclui GitHub Copilot CLI e OpenAI Codex CLI. A compatibilidade real dos comandos e permissões ainda precisa ser validada.
 
 ## Prioridade P1 — Usabilidade e confiabilidade
 
