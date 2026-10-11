@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getProvider, listProviders } from '../src/agents/providers.js';
+import { buildProviderArguments, validateProvider } from '../src/agents/provider-contract.js';
 
 test('o registro lista o GitHub Copilot CLI', () => {
   const providers = listProviders();
@@ -38,4 +39,27 @@ test('Codex CLI usa sandbox workspace-write e adiciona projetos secundários', (
   assert.ok(args.includes('workspace-write'));
   assert.ok(args.includes('--add-dir'));
   assert.ok(args.includes('C:\\Projetos\\web'));
+});
+
+test('todos os providers registrados cumprem o contrato comum', () => {
+  for (const provider of listProviders()) {
+    const full = getProvider(provider.id);
+    assert.doesNotThrow(() => validateProvider(full));
+    const args = buildProviderArguments(full, {
+      prompt: 'Teste de contrato',
+      targetPaths: ['C:\\Projetos\\api'],
+      primaryPath: 'C:\\Projetos\\api'
+    });
+    assert.ok(Array.isArray(args));
+    assert.ok(args.every(arg => typeof arg === 'string'));
+  }
+});
+
+test('o contrato rejeita providers incompletos e argumentos inválidos', () => {
+  assert.throws(() => validateProvider({ id: 'bad' }), /obrigatório|plataformas/i);
+  const provider = {
+    id: 'bad', name: 'Bad', command: 'bad', description: 'Bad provider',
+    platforms: ['win32'], buildCliArguments: () => ['ok', 123]
+  };
+  assert.throws(() => buildProviderArguments(provider, {}), /lista de argumentos string/i);
 });
