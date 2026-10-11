@@ -6,6 +6,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { getProvider, listProviders } from './agents/providers.js';
+import { buildProviderArguments } from './agents/provider-contract.js';
 import { RunManager } from './execution/run-manager.js';
 import { createLocalRequestGuard } from './security/local-request-guard.js';
 import { resolveProjectDirectories } from './security/project-paths.js';
@@ -301,7 +302,7 @@ app.post('/api/projects/:project/tasks/:id/run', async (req, res) => {
     const targetPaths = projectPaths.map(p => p.path);
     const primaryPath = projectPaths.find(p => p.name === req.params.project)?.path;
     if (!primaryPath) return res.status(400).json({ error: 'Não foi possível resolver o projeto principal.' });
-    const cliArgs = provider.buildCliArguments({ prompt, targetPaths, primaryPath });
+    const cliArgs = buildProviderArguments(provider, { prompt, targetPaths, primaryPath });
     const run = await runManager.start({
       project: req.params.project,
       taskId: id,
