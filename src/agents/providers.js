@@ -28,7 +28,6 @@ const providers = [
         '--cd', primaryPath,
         '--sandbox', 'workspace-write',
         '--ask-for-approval', 'never',
-        '--skip-git-repo-check',
         ...additionalPaths.flatMap(directory => ['--add-dir', directory]),
         prompt
       ];
