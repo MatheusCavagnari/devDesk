@@ -63,7 +63,7 @@ app.get('/api/agents/status', async (_req, res) => {
     }
   }));
   res.json({ agents: statuses });
-}
+});
 
 // Abre o seletor nativo de pastas do Windows.
 app.post('/api/select-folder', async (_req, res) => {
