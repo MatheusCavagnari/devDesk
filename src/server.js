@@ -15,7 +15,6 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 let projectsRoot = '';
 const configDir = path.join(os.homedir(), '.devdesk');
 const configFile = path.join(configDir, 'config.json');
-const runHistoryFile = path.join(configDir, 'runs.json');
 const runManager = new RunManager({ timeoutMs: Number(process.env.DEVDESK_RUN_TIMEOUT_MS || 30 * 60 * 1000) });
 
 app.use(express.json({ limit: '256kb' }));
