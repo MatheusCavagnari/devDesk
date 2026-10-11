@@ -1,3 +1,5 @@
+import { validateProvider } from './provider-contract.js';
+
 const providers = [
   {
     id: 'copilot-cli',
