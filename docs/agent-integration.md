@@ -153,3 +153,12 @@ A CLI pode pedir aprovação interativa para certas ações; a primeira implemen
 - Os testes unitários usam um processo simulado, sem exigir CLIs ou consumo de IA. Eles cobrem concorrência, timeout, cancelamento e recuperação de histórico.
 
 Esses testes automatizados não substituem a validação manual com os CLIs instalados em Windows. O timeout também não equivale a sandbox: a execução do CLI ainda ocorre com as permissões do usuário.
+
+
+## Organização das tarefas e arquivos
+
+`src/repositories/markdown-task-repository.js` é responsável por ler e gravar os arquivos Markdown, gerar o índice `.devdesk/TASKS.md`, validar projetos-alvo, alocar IDs via helper de domínio e montar o prompt do agente.
+
+`src/api/routes/tasks.routes.js` contém as rotas HTTP de listagem, criação, edição, exclusão e obtenção do prompt. `src/server.js` registra o router e mantém a inicialização do servidor, configuração global, seleção da raiz, descoberta de projetos e endpoints de execução/histórico.
+
+`test/http-tasks.integration.test.js` inicia o servidor real numa porta temporária e usa um diretório temporário como home e raiz de projetos. Os testes verificam configuração, CRUD, arquivos Markdown, índice sincronizado, prompt, preservação de critérios marcados, caminhos inválidos e bloqueio de origem externa. A CI deve instalar as dependências antes de executar a suíte.
