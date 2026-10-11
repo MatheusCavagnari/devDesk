@@ -207,29 +207,34 @@ export class RunManager {
     }
   }
 
-  async finalize(run, { code = null, signal = null, error = null } = {}) {
-    if (run.finalized) return;
+  finalize(run, { code = null, signal = null, error = null } = {}) {
+    if (run.finalization) return run.finalization;
     run.finalized = true;
-    if (run.timeout) clearTimeout(run.timeout);
-    if (run.timedOut) {
-      run.status = 'failed';
-    } else if (run.status !== 'cancelled') {
-      run.status = error || code !== 0 ? 'failed' : 'succeeded';
-    }
-    run.exitCode = code;
-    run.signal = run.signal || signal || null;
-    run.finishedAt = new Date().toISOString();
-    run.process = null;
-    if (error) this.appendLog(run, '\nErro ao iniciar o agente CLI: ' + error.message);
-    if (run.persistTimer) {
-      clearTimeout(run.persistTimer);
-      run.persistTimer = null;
-    }
-    await Promise.all([
-      fs.rm(run.configPath, { force: true }).catch(() => {}),
-      fs.rm(run.scriptPath, { force: true }).catch(() => {})
-    ]);
-    this.persist().catch(saveError => console.error('Falha ao salvar histórico do DevDesk:', saveError.message));
+    run.finalization = (async () => {
+      if (run.timeout) clearTimeout(run.timeout);
+      if (run.timedOut) {
+        run.status = 'failed';
+      } else if (run.status !== 'cancelled') {
+        run.status = error || code !== 0 ? 'failed' : 'succeeded';
+      }
+      run.exitCode = code;
+      run.signal = run.signal || signal || null;
+      run.finishedAt = new Date().toISOString();
+      run.process = null;
+      if (error) this.appendLog(run, '\nErro ao iniciar o agente CLI: ' + error.message);
+      if (run.persistTimer) {
+        clearTimeout(run.persistTimer);
+        run.persistTimer = null;
+      }
+      await Promise.all([
+        fs.rm(run.configPath, { force: true }).catch(() => {}),
+        fs.rm(run.scriptPath, { force: true }).catch(() => {})
+      ]);
+      await this.persist();
+    })().catch(saveError => {
+      console.error('Falha ao finalizar/salvar execução do DevDesk:', saveError.message);
+    });
+    return run.finalization;
   }
 
   async cancel(id) {
