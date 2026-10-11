@@ -28,18 +28,20 @@ Este documento registra o que falta para evoluir o MVP atual. Os status são con
 
 - [x] **TASK-017 — Definir e documentar a arquitetura de execução de agentes.** Existe um registro inicial de providers em `src/agents/providers.js`; a arquitetura e as limitações estão descritas em `docs/agent-integration.md`. O contrato ainda precisa evoluir com detecção de disponibilidade e testes.
 - [x] **TASK-018 — Permitir selecionar múltiplos projetos em uma tarefa.** A interface permite selecionar vários projetos e os alvos são persistidos no Markdown canônico. A validação ponta a ponta ainda está pendente.
-- [ ] **TASK-019 — Criar o executor de processos local.** Iniciar ferramentas CLI com argumentos separados (sem concatenar entrada do usuário em comandos shell), diretório de trabalho explícito, captura de saída, status, cancelamento e tratamento de timeout.
-- [ ] **TASK-020 — Validar o provider GitHub Copilot CLI.** O adaptador inicial está implementado, mas ainda falta detectar/autenticar o CLI com clareza e validar o comando real no Windows.
+- [ ] **TASK-019 — Robustecer o executor de processos local.** A inicialização, diretório de trabalho, captura de saída, status e cancelamento existem; ainda faltam timeout explícito, tratamento de encerramento e testes de integração.
+- [ ] **TASK-020 — Validar os providers CLI.** A implementação inicial consulta a versão dos CLIs no Windows, mas ainda não verifica autenticação e precisa de teste real.
 - [x] **TASK-021 — Criar a interface de execução.** Há seletor de provider, seleção de projetos-alvo, confirmação, saída, status e cancelamento; o fluxo ainda precisa ser testado manualmente.
-- [ ] **TASK-022 — Persistir histórico das execuções.** Guardar provider, tarefa, projetos-alvo, horários, resultado, código de saída e caminho do log, sem registrar segredos.
+- [x] **TASK-022 — Persistir histórico das execuções (implementação inicial).** O histórico grava provider, projeto/tarefa, horários, resultado, código de saída e trecho limitado da saída em `~/.devdesk/runs.json`; execuções interrompidas pelo reinício são marcadas como `interrupted`. Falta validar concorrência, recuperação e comportamento em Windows.
 - [x] **TASK-023 — Preparar o contrato para outros providers.** O registro já inclui GitHub Copilot CLI e OpenAI Codex CLI. A compatibilidade real dos comandos e permissões ainda precisa ser validada.
+
+- [ ] **TASK-025 — Melhorar o diagnóstico dos agentes.** Mostrar a disponibilidade e versão dos CLIs na interface, distinguir CLI ausente de autenticação pendente e oferecer um diagnóstico acionável. A consulta inicial de versão está implementada, mas precisa ser validada no Windows.
 
 ## Prioridade P1 — Usabilidade e confiabilidade
 
 - [ ] **TASK-006 — Melhorar a interface e os estados de carregamento.** Adicionar filtros por status/prioridade, busca, contadores, confirmação de exclusão mais clara e feedback consistente.
 - [ ] **TASK-007 — Adicionar documentação de uso e solução de problemas.** Explicar configuração, formato dos arquivos, backup, erros comuns e como contribuir.
 - [ ] **TASK-008 — Adicionar logs e diagnóstico local.** Registrar erros úteis sem expor conteúdo desnecessário dos projetos.
-- [ ] **TASK-024 — Rever segurança do agente e recuperação de falhas.** Validar novamente todos os caminhos selecionados, limitar permissões, não permitir acesso a diretórios não selecionados por configuração do DevDesk, lidar com encerramento do servidor e não executar agentes automaticamente ao abrir uma tarefa.
+- [ ] **TASK-024 — Rever segurança do agente e recuperação de falhas.** O histórico sobrevive ao reinício e sinaliza execuções interrompidas; ainda falta validar todos os caminhos, permissões efetivas, encerramento do servidor e não execução automática.
 
 ## Prioridade P2 — Evolução
 
