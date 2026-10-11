@@ -13,6 +13,8 @@ const PORT = Number(process.env.PORT || 3030);
 const execFileAsync = promisify(execFile);
 const here = path.dirname(fileURLToPath(import.meta.url));
 let projectsRoot = '';
+const configDir = path.join(os.homedir(), '.devdesk');
+const configFile = path.join(configDir, 'config.json');
 const agentRuns = new Map();
 
 app.use(express.json({ limit: '256kb' }));
@@ -20,6 +22,23 @@ app.use(express.static(path.join(here, 'public')));
 
 const safeName = (value) => String(value ?? '').trim().replace(/[<>:"/\\|?*\x00-\x1F]/g, '-').replace(/[. ]+$/g, '').slice(0, 100);
 const exists = async (file) => { try { await fs.access(file); return true; } catch { return false; } };
+
+async function saveProjectsRoot(value) {
+  await fs.mkdir(configDir, { recursive: true });
+  const temp = configFile + '.tmp';
+  await fs.writeFile(temp, JSON.stringify({ projectsRoot: value }, null, 2) + '\n', 'utf8');
+  await fs.rename(temp, configFile);
+}
+
+async function loadSavedProjectsRoot() {
+  try {
+    const saved = JSON.parse(await fs.readFile(configFile, 'utf8'));
+    const candidate = String(saved.projectsRoot || '');
+    if (!candidate || !path.isAbsolute(candidate)) return;
+    const stat = await fs.stat(candidate).catch(() => null);
+    if (stat?.isDirectory()) projectsRoot = await fs.realpath(candidate);
+  } catch { /* primeira execução ou configuração ainda não salva */ }
+}
 
 async function projectInfo(name) {
   if (!projectsRoot) throw new Error('Configure a pasta raiz primeiro.');
@@ -117,7 +136,9 @@ app.post('/api/select-folder', async (_req, res) => {
       return res.status(400).json({ error: 'A pasta selecionada não existe ou não é uma pasta.' });
     }
 
-    projectsRoot = await fs.realpath(full);
+    const real = await fs.realpath(full);
+    await saveProjectsRoot(real);
+    projectsRoot = real;
     res.json({ projectsRoot });
   } catch (e) {
     res.status(500).json({ error: 'Não foi possível abrir o seletor de pastas do Windows: ' + e.message });
@@ -130,7 +151,9 @@ app.post('/api/config', async (req, res) => {
     const full = path.resolve(raw);
     const stat = await fs.stat(full).catch(() => null);
     if (!stat?.isDirectory()) return res.status(400).json({ error: 'A pasta não existe ou não é uma pasta.' });
-    projectsRoot = await fs.realpath(full);
+    const real = await fs.realpath(full);
+    await saveProjectsRoot(real);
+    projectsRoot = real;
     res.json({ projectsRoot });
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
@@ -340,4 +363,6 @@ app.delete('/api/projects/:project/tasks/:id', async (req, res) => {
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
-app.listen(PORT, '127.0.0.1', () => console.log(`DevDesk disponível em http://127.0.0.1:${PORT}`));
+loadSavedProjectsRoot().finally(() => {
+  app.listen(PORT, '127.0.0.1', () => console.log(`DevDesk disponível em http://127.0.0.1:${PORT}`));
+});
