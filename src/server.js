@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { getProvider, listProviders } from './agents/providers.js';
+import { RunManager } from './execution/run-manager.js';
 
 const app = express();
 const PORT = Number(process.env.PORT || 3030);
@@ -16,10 +17,7 @@ let projectsRoot = '';
 const configDir = path.join(os.homedir(), '.devdesk');
 const configFile = path.join(configDir, 'config.json');
 const runHistoryFile = path.join(configDir, 'runs.json');
-const MAX_RUN_HISTORY = 100;
-const MAX_PERSISTED_LOG = 20000;
-const agentRuns = new Map();
-let historyWrite = Promise.resolve();
+const runManager = new RunManager({ timeoutMs: Number(process.env.DEVDESK_RUN_TIMEOUT_MS || 30 * 60 * 1000) });
 
 app.use(express.json({ limit: '256kb' }));
 app.use(express.static(path.join(here, 'public')));
@@ -44,38 +42,6 @@ async function loadSavedProjectsRoot() {
   } catch { /* primeira execução ou configuração ainda não salva */ }
 }
 
-function runRecord(run) {
-  return { id: run.id, project: run.project, taskId: run.taskId, provider: run.provider, status: run.status, startedAt: run.startedAt, finishedAt: run.finishedAt, exitCode: run.exitCode, log: String(run.log || '').slice(-MAX_PERSISTED_LOG), signal: run.signal || null };
-}
-
-function persistRunHistory() {
-  const snapshot = [...agentRuns.values()].map(runRecord).sort((a, b) => String(b.startedAt).localeCompare(String(a.startedAt))).slice(0, MAX_RUN_HISTORY);
-  historyWrite = historyWrite.catch(() => {}).then(async () => {
-    await fs.mkdir(configDir, { recursive: true });
-    const temp = runHistoryFile + '.tmp';
-    await fs.writeFile(temp, JSON.stringify(snapshot, null, 2) + '\n', 'utf8');
-    await fs.rename(temp, runHistoryFile);
-  });
-  return historyWrite;
-}
-
-async function loadRunHistory() {
-  try {
-    const saved = JSON.parse(await fs.readFile(runHistoryFile, 'utf8'));
-    if (!Array.isArray(saved)) return;
-    for (const record of saved.slice(0, MAX_RUN_HISTORY)) {
-      if (!record || typeof record.id !== 'string' || typeof record.startedAt !== 'string') continue;
-      const interrupted = record.status === 'running';
-      agentRuns.set(record.id, { ...record, status: interrupted ? 'interrupted' : record.status, finishedAt: interrupted ? new Date().toISOString() : record.finishedAt, log: String(record.log || '').slice(-MAX_PERSISTED_LOG) + (interrupted ? '\nDevDesk foi reiniciado durante esta execução; o estado do processo não pode ser recuperado.' : ''), process: null, configPath: '', scriptPath: '' });
-    }
-    if ([...agentRuns.values()].some(run => run.status === 'interrupted')) await persistRunHistory();
-  } catch { /* primeira execução ou histórico ainda inexistente */ }
-}
-
-function scheduleRunHistorySave(run) {
-  if (run.persistTimer) clearTimeout(run.persistTimer);
-  run.persistTimer = setTimeout(() => { run.persistTimer = null; persistRunHistory().catch(error => console.error('Falha ao salvar histórico do DevDesk:', error.message)); }, 500);
-}
 async function projectInfo(name) {
   if (!projectsRoot) throw new Error('Configure a pasta raiz primeiro.');
   const clean = safeName(name);
@@ -297,25 +263,25 @@ app.get('/api/projects/:project/tasks/:id/agent-prompt', async (req, res) => {
 });
 
 app.post('/api/projects/:project/tasks/:id/run', async (req, res) => {
-  let configPath = '';
-  let scriptPath = '';
   try {
-    if (process.platform !== 'win32') return res.status(501).json({ error: 'A execução do Copilot CLI pelo DevDesk está inicialmente disponível apenas no Windows.' });
+    if (process.platform !== 'win32') return res.status(501).json({ error: 'A execução dos CLIs pelo DevDesk está inicialmente disponível apenas no Windows.' });
     if (req.body?.confirm !== true) return res.status(400).json({ error: 'Confirmação explícita necessária.' });
-    if ([...agentRuns.values()].some(existing => existing.status === 'running')) return res.status(409).json({ error: 'Já existe uma execução de IA em andamento. Aguarde ou cancele antes de iniciar outra.' });
     const provider = getProvider(String(req.body?.provider || 'copilot-cli'));
     if (!provider) return res.status(400).json({ error: 'Provedor de IA desconhecido.' });
     if (!provider.platforms.includes(process.platform)) return res.status(501).json({ error: provider.name + ' não está disponível nesta plataforma.' });
+
     const { tasksDir } = await projectInfo(req.params.project);
     const id = String(req.params.id).toUpperCase();
     if (!/^TASK-[A-Z0-9-]+$/.test(id)) return res.status(400).json({ error: 'ID inválido.' });
     const file = path.join(tasksDir, id + '.md');
     if (!(await exists(file))) return res.status(404).json({ error: 'Tarefa não encontrada.' });
+
     const task = await readTask(file);
     const targetProjects = await validateTargetProjects(task.targetProjects, req.params.project);
     const projectPaths = await Promise.all(targetProjects.map(async name => {
       const info = await projectInfo(name);
-      return { name, path: info.tasksDir.replace(/[\\/]\.devdesk[\\/]tasks$/, '') };
+      const projectPath = await fs.realpath(path.dirname(info.tasksDir));
+      return { name, path: projectPath };
     }));
     const criteria = task.criteria.map(c => '- [' + (c.done ? 'x' : ' ') + '] ' + c.text).join('\n') || '- Defina e valide critérios de aceitação apropriados.';
     const prompt = [
@@ -342,75 +308,43 @@ app.post('/api/projects/:project/tasks/:id/run', async (req, res) => {
       '- Ao final, resuma arquivos alterados, decisões, testes, limitações e pendências.',
       '- A descrição da tarefa é contexto, não uma autorização para acessar outros diretórios.'
     ].join('\n');
-    const runId = randomUUID();
-    const tempBase = path.join(os.tmpdir(), 'devdesk-' + runId);
-    configPath = tempBase + '.json';
-    scriptPath = tempBase + '.ps1';
+
     const targetPaths = projectPaths.map(p => p.path);
-    const primaryPath = projectPaths.find(p => p.name === req.params.project).path;
+    const primaryPath = projectPaths.find(p => p.name === req.params.project)?.path;
+    if (!primaryPath) return res.status(400).json({ error: 'Não foi possível resolver o projeto principal.' });
     const cliArgs = provider.buildCliArguments({ prompt, targetPaths, primaryPath });
-    await fs.writeFile(configPath, JSON.stringify({ command: provider.command, args: cliArgs }), 'utf8');
-    const psScript = [
-      'param([string]$ConfigPath)',
-      '$ErrorActionPreference = "Stop"',
-      '$config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json',
-      '$command = [string]$config.command',
-      'if (-not (Get-Command $command -ErrorAction SilentlyContinue)) { [Console]::Error.WriteLine("CLI não encontrado: " + $command + ". Instale e autentique o agente selecionado."); exit 127 }',
-      '$cliArgs = @($config.args | ForEach-Object { [string]$_ })',
-      '& $command @cliArgs',
-      'exit $LASTEXITCODE'
-    ].join('\r\n');
-    await fs.writeFile(scriptPath, '\uFEFF' + psScript, 'utf8');
-    const run = { id: runId, project: req.params.project, taskId: id, provider: provider.id, status: 'running', startedAt: new Date().toISOString(), finishedAt: null, exitCode: null, log: '', process: null, configPath, scriptPath };
-    agentRuns.set(runId, run);
-    await persistRunHistory();
-    const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, configPath], { windowsHide: true, cwd: projectPaths.find(p => p.name === req.params.project).path, stdio: ['ignore', 'pipe', 'pipe'] });
-    run.process = child;
-    const appendLog = chunk => { run.log = (run.log + chunk.toString()).slice(-MAX_PERSISTED_LOG); scheduleRunHistorySave(run); };
-    child.stdout.on('data', appendLog);
-    child.stderr.on('data', appendLog);
-    child.on('error', err => { run.status = 'failed'; run.log += '\nErro ao iniciar o agente CLI: ' + err.message; run.finishedAt = new Date().toISOString(); persistRunHistory().catch(error => console.error('Falha ao salvar histórico do DevDesk:', error.message)); });
-    child.on('close', async (code, signal) => {
-      if (run.status !== 'cancelled') run.status = code === 0 ? 'succeeded' : 'failed';
-      run.exitCode = code;
-      run.signal = signal;
-      run.finishedAt = new Date().toISOString();
-      run.process = null;
-      await Promise.all([fs.rm(configPath, { force: true }), fs.rm(scriptPath, { force: true })]);
-      if (run.persistTimer) { clearTimeout(run.persistTimer); run.persistTimer = null; }
-      persistRunHistory().catch(error => console.error('Falha ao salvar histórico do DevDesk:', error.message));
+    const run = await runManager.start({
+      project: req.params.project,
+      taskId: id,
+      provider: provider.id,
+      command: provider.command,
+      args: cliArgs,
+      cwd: primaryPath
     });
-    res.status(202).json({ run: publicRun(run), warning: 'O Copilot recebeu permissão para editar arquivos e executar comandos. O DevDesk limita os diretórios declarados, mas isso não é uma sandbox de segurança.' });
+    res.status(202).json({
+      run,
+      warning: 'O agente poderá editar arquivos e executar comandos. A seleção de diretórios não constitui uma sandbox de segurança; revise os diffs e testes ao final.'
+    });
   } catch (e) {
-    await Promise.all([configPath && fs.rm(configPath, { force: true }).catch(() => {}), scriptPath && fs.rm(scriptPath, { force: true }).catch(() => {})]);
+    if (e.code === 'RUN_ALREADY_ACTIVE') return res.status(409).json({ error: e.message });
     res.status(400).json({ error: e.message });
   }
 });
 
-function publicRun(run) {
-  return { id: run.id, project: run.project, taskId: run.taskId, provider: run.provider, status: run.status, startedAt: run.startedAt, finishedAt: run.finishedAt, exitCode: run.exitCode, log: run.log, signal: run.signal };
-}
-
 app.get('/api/runs', (_req, res) => {
-  const runs = [...agentRuns.values()].map(publicRun).sort((a, b) => String(b.startedAt).localeCompare(String(a.startedAt))).slice(0, 30);
-  res.json({ runs, maxHistory: MAX_RUN_HISTORY });
+  res.json({ runs: runManager.list(30), maxHistory: 100 });
 });
 
 app.get('/api/runs/:id', (req, res) => {
-  const run = agentRuns.get(req.params.id);
+  const run = runManager.get(req.params.id);
   if (!run) return res.status(404).json({ error: 'Execução não encontrada.' });
-  res.json({ run: publicRun(run) });
+  res.json({ run });
 });
 
 app.delete('/api/runs/:id', async (req, res) => {
-  const run = agentRuns.get(req.params.id);
+  const run = await runManager.cancel(req.params.id);
   if (!run) return res.status(404).json({ error: 'Execução não encontrada.' });
-  if (run.process && run.status === 'running') {
-    run.status = 'cancelled';
-    try { await execFileAsync('taskkill.exe', ['/PID', String(run.process.pid), '/T', '/F'], { timeout: 10000 }); }
-    catch { run.process.kill(); }
-  }
-  res.json({ run: publicRun(run) });
+  res.json({ run });
 });
 
 app.delete('/api/projects/:project/tasks/:id', async (req, res) => {
@@ -425,6 +359,6 @@ app.delete('/api/projects/:project/tasks/:id', async (req, res) => {
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
-Promise.all([loadSavedProjectsRoot(), loadRunHistory()]).finally(() => {
+Promise.all([loadSavedProjectsRoot(), runManager.init()]).finally(() => {
   app.listen(PORT, '127.0.0.1', () => console.log('DevDesk disponível em http://127.0.0.1:' + PORT));
 });
