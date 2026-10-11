@@ -18,9 +18,9 @@ Este documento registra o que falta para evoluir o MVP atual. Os status são con
 
 - [ ] **TASK-001 — Executar e validar o projeto localmente.** Instalar dependências, iniciar o servidor e testar o fluxo principal em Windows.
 - [ ] **TASK-002 — Criar testes automatizados.** Cobrir configuração da raiz, CRUD de tarefas, validações, geração dos arquivos Markdown e sincronização do índice.
-- [ ] **TASK-003 — Corrigir robustez e validações de arquivos.** Validar caminhos, IDs, entradas longas e erros de leitura/escrita; garantir que operações nunca escapem da raiz configurada.
+- [ ] **TASK-003 — Corrigir robustez e validações de arquivos.** Adicionadas validação de nomes/caminhos de projetos, rejeição de links simbólicos nas pastas controladas pelo DevDesk e proteção básica contra Host/Origin inesperados. Ainda falta revisão de segurança ponta a ponta e testes HTTP.
 - [x] **TASK-004 — Persistir a configuração da pasta raiz.** A pasta selecionada é salva em `~/.devdesk/config.json` e recarregada ao iniciar; ainda falta testar e adicionar uma opção explícita para remover a pasta.
-- [ ] **TASK-005 — Melhorar edição e sincronização das tarefas.** Garantir que critérios de aceitação marcados sejam preservados, IDs nunca sejam reutilizados e edições externas em Markdown sejam tratadas de forma previsível.
+- [ ] **TASK-005 — Melhorar edição e sincronização das tarefas.** Critérios marcados são preservados quando o texto não muda, e a geração de IDs usa sequência persistente para não reutilizar IDs excluídos após a adoção do novo mecanismo. Ainda falta testar edição externa em Markdown.
 
 ## Prioridade P0 — Integração com agentes de IA e múltiplos projetos
 
@@ -28,7 +28,7 @@ Este documento registra o que falta para evoluir o MVP atual. Os status são con
 
 - [x] **TASK-017 — Definir e documentar a arquitetura de execução de agentes.** Existe um registro inicial de providers em `src/agents/providers.js`; a arquitetura e as limitações estão descritas em `docs/agent-integration.md`. O contrato ainda precisa evoluir com detecção de disponibilidade e testes.
 - [x] **TASK-018 — Permitir selecionar múltiplos projetos em uma tarefa.** A interface permite selecionar vários projetos e os alvos são persistidos no Markdown canônico. A validação ponta a ponta ainda está pendente.
-- [ ] **TASK-019 — Robustecer o executor de processos local.** O ciclo de vida foi extraído para `src/execution/run-manager.js`, com reserva contra concorrência, timeout configurável, cancelamento da árvore de processos e persistência. Testes unitários simulados foram adicionados; ainda falta executar a suíte no CI e validar o comportamento real dos CLIs no Windows.
+- [ ] **TASK-019 — Robustecer o executor de processos local.** O ciclo de vida foi extraído para `src/execution/run-manager.js`, com reserva contra concorrência, timeout configurável, cancelamento da árvore de processos e persistência. Testes unitários simulados foram adicionados; testes de unidade foram adicionados; a CI está verificando os commits recentes e ainda falta validar o comportamento real dos CLIs no Windows.
 - [ ] **TASK-020 — Validar os providers CLI.** A implementação inicial consulta a versão dos CLIs no Windows, mas ainda não verifica autenticação e precisa de teste real.
 - [x] **TASK-021 — Criar a interface de execução.** Há seletor de provider, seleção de projetos-alvo, confirmação, saída, status e cancelamento; o fluxo ainda precisa ser testado manualmente.
 - [x] **TASK-022 — Persistir histórico das execuções (implementação inicial).** O histórico grava provider, projeto/tarefa, horários, resultado, código de saída e trecho limitado da saída em `~/.devdesk/runs.json`; execuções interrompidas pelo reinício são marcadas como `interrupted`. Falta validar concorrência, recuperação e comportamento em Windows.
