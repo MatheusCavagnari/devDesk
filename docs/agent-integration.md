@@ -39,13 +39,13 @@ A implementação inicial usa um registro de providers em `src/agents/providers.
 5. A interface mostra o estado e a saída da execução, permite cancelar e apresenta o resultado.
 6. O usuário revisa as alterações no repositório e valida os critérios de aceitação antes de marcar a tarefa como concluída.
 
-Estados usados inicialmente: `running`, `succeeded`, `failed`, `cancelled`. O estado e o log vivem em memória, então execuções não são restauradas após reiniciar o DevDesk. Estados futuros sugeridos: `queued`, `starting` e histórico persistido. O término com código zero não garante que a tarefa foi implementada corretamente.
+Estados de execução incluem `running`, `succeeded`, `failed`, `cancelled` e `interrupted`. O estado e os logs recentes são persistidos em `~/.devdesk/runs.json`; processos não são retomados após reiniciar o DevDesk. O término com código zero não garante que a tarefa foi implementada corretamente.
 
 ## Histórico persistente e diagnóstico inicial
 
-O DevDesk mantém um histórico local em `~/.devdesk/runs.json`, separado dos repositórios. São mantidas até 100 execuções, com até 20.000 caracteres finais de saída por execução. O frontend exibe as execuções recentes e permite consultar a saída guardada. A gravação usa arquivo temporário e renomeação para reduzir o risco de arquivo parcialmente escrito.
+O DevDesk mantém um histórico local em `~/.devdesk/runs.json`, separado dos repositórios. São mantidas até 100 execuções concluídas, além de qualquer execução ativa, com até 20.000 caracteres finais de saída por execução; a memória e o arquivo de histórico são limitados pela mesma política. O frontend exibe as execuções recentes e permite consultar a saída guardada. A gravação usa arquivo temporário e renomeação para reduzir o risco de arquivo parcialmente escrito.
 
-Ao iniciar, se uma execução estiver marcada como `running`, ela é apresentada como `interrupted`: o DevDesk não consegue recuperar o processo filho depois de reiniciar. O histórico não tenta reiniciar tarefas automaticamente.
+Ao iniciar, se uma execução estiver marcada como `running`, ela é apresentada como `interrupted`: o DevDesk não consegue recuperar o processo filho depois de reiniciar. O histórico não tenta reiniciar tarefas automaticamente. A interface deve parar de consultar uma execução quando ela chegar a qualquer estado terminal, inclusive `interrupted`.
 
 A rota `GET /api/agents/status` consulta a versão de cada CLI no Windows e a interface informa se o comando foi encontrado. Isso **não verifica autenticação** nem garante que o agente esteja autorizado a executar tarefas; essa confirmação só será possível após validar o fluxo real do CLI.
 
