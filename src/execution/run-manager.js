@@ -59,7 +59,7 @@ export class RunManager {
   }
 
   hasActiveRun() {
-    return [...this.runs.values()].some(run => run.status === 'running');
+    return [...this.runs.values()].some(run => run.status === 'running' || (run.process && !run.finalized));
   }
 
   async init() {
@@ -167,7 +167,7 @@ export class RunManager {
         if (run.finalized || run.status !== 'running') return;
         run.timedOut = true;
         run.signal = 'timeout';
-        this.appendLog(run, '\nExecução encerrada: tempo limite de 30 minutos excedido.');
+        this.appendLog(run, '\nExecução encerrada: o tempo limite configurado foi excedido.');
         this.killTree(child.pid).catch(() => {
           try { child.kill(); } catch { /* processo já encerrado */ }
         });
