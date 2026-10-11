@@ -269,7 +269,9 @@ app.post('/api/projects/:project/tasks/:id/run', async (req, res) => {
     const tempBase = path.join(os.tmpdir(), 'devdesk-' + runId);
     configPath = tempBase + '.json';
     scriptPath = tempBase + '.ps1';
-    const cliArgs = provider.buildCliArguments({ prompt, targetPaths: projectPaths.map(p => p.path) });
+    const targetPaths = projectPaths.map(p => p.path);
+    const primaryPath = projectPaths.find(p => p.name === req.params.project).path;
+    const cliArgs = provider.buildCliArguments({ prompt, targetPaths, primaryPath });
     await fs.writeFile(configPath, JSON.stringify({ command: provider.command, args: cliArgs }), 'utf8');
     const psScript = [
       'param([string]$ConfigPath)',
