@@ -153,12 +153,14 @@ app.get('/api/agents/status', async (_req, res) => {
     const provider = getProvider(info.id);
     if (!provider.platforms.includes(process.platform)) return { id: provider.id, name: provider.name, installed: false, supported: false, message: 'Não suportado nesta plataforma.' };
     try {
-      const result = await execFileAsync(provider.command, ['--version'], { windowsHide: true, timeout: 6000, maxBuffer: 1024 * 1024 });
+      const command = provider.command.replace(/'/g, "''");
+      const script = "$ErrorActionPreference='Stop'; $cmd=Get-Command '" + command + "' -ErrorAction Stop; & $cmd.Source --version; exit $LASTEXITCODE";
+      const result = await execFileAsync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { windowsHide: true, timeout: 6000, maxBuffer: 1024 * 1024 });
       const version = String(result.stdout || result.stderr || '').trim().split(/\r?\n/)[0].slice(0, 180);
       return { id: provider.id, name: provider.name, installed: true, supported: true, version, message: 'CLI encontrado. Autenticação não verificada.' };
     } catch (error) {
-      const missing = error.code === 'ENOENT';
-      return { id: provider.id, name: provider.name, installed: false, supported: true, message: missing ? 'Não encontrado no PATH.' : (error.killed ? 'O comando de versão excedeu o tempo limite.' : 'Não foi possível consultar a versão.') };
+      const missing = /Cannot find path|not recognized|is not recognized|CommandNotFoundException/i.test(String(error.stderr || error.message || ''));
+      return { id: provider.id, name: provider.name, installed: false, supported: true, message: missing ? 'Não encontrado no PATH.' : (error.killed ? 'O comando de versão excedeu o tempo limite.' : 'Não foi possível consultar a versão; confira a saída do PowerShell.') };
     }
   }));
   res.json({ agents: statuses });
@@ -361,6 +363,7 @@ app.post('/api/projects/:project/tasks/:id/run', async (req, res) => {
     await fs.writeFile(scriptPath, '\uFEFF' + psScript, 'utf8');
     const run = { id: runId, project: req.params.project, taskId: id, provider: provider.id, status: 'running', startedAt: new Date().toISOString(), finishedAt: null, exitCode: null, log: '', process: null, configPath, scriptPath };
     agentRuns.set(runId, run);
+    await persistRunHistory();
     const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, configPath], { windowsHide: true, cwd: projectPaths.find(p => p.name === req.params.project).path, stdio: ['ignore', 'pipe', 'pipe'] });
     run.process = child;
     const appendLog = chunk => { run.log = (run.log + chunk.toString()).slice(-MAX_PERSISTED_LOG); scheduleRunHistorySave(run); };
