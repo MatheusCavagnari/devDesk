@@ -166,7 +166,6 @@ export class RunManager {
       run.timeout = setTimeout(() => {
         if (run.finalized || run.status !== 'running') return;
         run.timedOut = true;
-        run.status = 'failed';
         run.signal = 'timeout';
         this.appendLog(run, '\nExecução encerrada: tempo limite de 30 minutos excedido.');
         this.killTree(child.pid).catch(() => {
