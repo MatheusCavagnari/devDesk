@@ -42,7 +42,7 @@ test('reserva uma execução antes de qualquer await e bloqueia concorrência', 
     );
     const run = await firstPromise;
     manager.runs.get(run.id).process.emit('close', 0, null);
-    await new Promise(resolve => setImmediate(resolve));
+    await manager.runs.get(run.id).finalization;
     assert.equal(manager.get(run.id).status, 'succeeded');
     assert.equal(manager.hasActiveRun(), false);
   } finally {
@@ -67,6 +67,7 @@ test('encerra a execução e registra timeout', async () => {
       command: 'fake', args: [], cwd: dir
     });
     await new Promise(resolve => setTimeout(resolve, 60));
+    await manager.runs.get(run.id).finalization;
     assert.equal(killedPid, 9876);
     assert.equal(manager.get(run.id).status, 'failed');
     assert.equal(manager.get(run.id).signal, 'timeout');
@@ -93,7 +94,7 @@ test('cancelamento marca a execução como cancelada e encerra a árvore', async
       command: 'fake', args: [], cwd: dir
     });
     const cancelled = await manager.cancel(run.id);
-    await new Promise(resolve => setImmediate(resolve));
+    await manager.runs.get(run.id).finalization;
     assert.equal(killedPid, 4567);
     assert.equal(cancelled.status, 'cancelled');
     assert.equal(manager.get(run.id).status, 'cancelled');
@@ -112,6 +113,7 @@ test('restaura execuções em andamento como interrompidas sem reiniciá-las', a
   try {
     const manager = new RunManager({ configDir: dir, historyFile });
     await manager.init();
+    await manager.historyWrite;
     assert.equal(manager.get('run-old').status, 'interrupted');
     assert.match(manager.get('run-old').log, /reiniciado/i);
     assert.equal(manager.hasActiveRun(), false);
