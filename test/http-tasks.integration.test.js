@@ -123,11 +123,17 @@ test('HTTP: configuração, CRUD de tarefas, Markdown e índice sincronizado', a
   assert.match(markdownAfterCreate, /projects: \["api","web"\]/);
   assert.match(await fs.readFile(path.join(apiDir, '.devdesk', 'TASKS.md'), 'utf8'), /Criar endpoint de saúde/);
 
+  const listed = await request(baseUrl, '/api/projects/api/tasks');
+  assert.equal(listed.status, 200);
+  assert.equal(listed.data.tasks[0].id, 'TASK-001');
+
   const prompt = await request(baseUrl, '/api/projects/api/tasks/TASK-001/agent-prompt');
   assert.equal(prompt.status, 200);
   assert.match(prompt.data.prompt, /Projetos autorizados para esta tarefa/);
   assert.match(prompt.data.prompt, /Criar endpoint de saúde/);
   assert.equal(prompt.data.projectPaths.length, 2);
+
+  await fs.writeFile(taskFile, markdownAfterCreate.replace('- [ ] Responder HTTP 200', '- [x] Responder HTTP 200'));
 
   const updated = await request(baseUrl, '/api/projects/api/tasks/TASK-001', {
     method: 'PATCH',
@@ -150,7 +156,7 @@ test('HTTP: configuração, CRUD de tarefas, Markdown e índice sincronizado', a
   await assert.rejects(fs.access(taskFile));
   assert.doesNotMatch(await fs.readFile(path.join(apiDir, '.devdesk', 'TASKS.md'), 'utf8'), /Criar endpoint de saúde/);
 
-  const missing = await request(baseUrl, '/api/projects/api/tasks/TASK-001');
+  const missing = await request(baseUrl, '/api/projects/api/tasks/TASK-001/agent-prompt');
   assert.equal(missing.status, 404);
 });
 
@@ -160,7 +166,7 @@ test('HTTP: bloqueia projeto com caminho inválido e origem externa', async t =>
   await fs.mkdir(path.join(projectsRoot, 'api'), { recursive: true });
   assert.equal((await request(baseUrl, '/api/config', { method: 'POST', body: { projectsRoot } })).status, 200);
 
-  const invalidPath = await request(baseUrl, '/api/projects/%2E%2E/tasks');
+  const invalidPath = await request(baseUrl, '/api/projects/%2e%2e%2foutside/tasks');
   assert.equal(invalidPath.status, 400);
 
   const hostile = await fetch(baseUrl + '/api/config', {
