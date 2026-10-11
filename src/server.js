@@ -52,7 +52,7 @@ function toMarkdown(t) {
     .map(c => `- [${c.done ? 'x' : ' '}] ${c.text}`).join('\n');
   return `---
 id: ${t.id}
-title: "${String(t.title).replace(/[\\r\\n]+/g, ' ').replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"
+title: "${String(t.title).replace(/[\r\n]+/g, ' ').replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"
 status: ${t.status}
 priority: ${t.priority}
 created: ${t.createdAt}
