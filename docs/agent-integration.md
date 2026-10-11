@@ -28,7 +28,7 @@ O backend deve depender de uma interface de provider, e não diretamente de coma
 - cancelamento;
 - resultado final com código de saída e referência ao log.
 
-O registro de providers fica em `src/agents/providers.js`; `src/agents/provider-contract.js` valida metadados obrigatórios e garante que a construção do comando retorne somente argumentos string. Esse é um contrato mínimo, não ainda um ciclo de vida completo de provider: diagnóstico de autenticação, eventos de execução e cancelamento seguem no backend. O processo e o ciclo de vida ficam em `src/execution/run-manager.js`. O ciclo de vida foi extraído para `src/execution/run-manager.js`; a rota HTTP valida a tarefa e delega a execução ao gerenciador. A detecção de versão não verifica autenticação e a execução real ainda precisa ser validada no Windows.
+O registro de providers fica em `src/infrastructure/agents/providers.js`; `src/application/ports/agent-provider.js` valida metadados obrigatórios e garante que a construção do comando retorne somente argumentos string. Esse é um contrato mínimo, não ainda um ciclo de vida completo de provider: diagnóstico de autenticação, eventos de execução e cancelamento seguem no backend. O processo e o ciclo de vida ficam em `src/infrastructure/process/run-manager.js`. O ciclo de vida foi extraído para `src/execution/run-manager.js`; a rota HTTP valida a tarefa e delega a execução ao gerenciador. A detecção de versão não verifica autenticação e a execução real ainda precisa ser validada no Windows.
 
 ## Fluxo de execução
 
@@ -157,8 +157,8 @@ Esses testes automatizados não substituem a validação manual com os CLIs inst
 
 ## Organização das tarefas e arquivos
 
-`src/repositories/markdown-task-repository.js` é responsável por ler e gravar os arquivos Markdown, gerar o índice `.devdesk/TASKS.md`, validar projetos-alvo, alocar IDs via helper de domínio e montar o prompt do agente.
+`src/infrastructure/persistence/markdown-task-repository.js` é responsável por ler e gravar os arquivos Markdown, gerar o índice `.devdesk/TASKS.md`, validar projetos-alvo, alocar IDs via helper de domínio e montar o prompt do agente.
 
-`src/api/routes/tasks.routes.js` contém as rotas HTTP de listagem, criação, edição, exclusão e obtenção do prompt. `src/server.js` registra o router e mantém a inicialização do servidor, configuração global, seleção da raiz, descoberta de projetos e endpoints de execução/histórico.
+`src/presentation/http/routes/tasks.routes.js` contém as rotas HTTP de listagem, criação, edição, exclusão e obtenção do prompt. `src/server.js` registra o router e mantém a inicialização do servidor, configuração global, seleção da raiz, descoberta de projetos e endpoints de execução/histórico.
 
 `test/http-tasks.integration.test.js` inicia o servidor real numa porta temporária e usa um diretório temporário como home e raiz de projetos. Os testes verificam configuração, CRUD, arquivos Markdown, índice sincronizado, prompt, preservação de critérios marcados, caminhos inválidos e bloqueio de origem externa. A CI deve instalar as dependências antes de executar a suíte.

@@ -1,0 +1,1 @@
+import {Router} from 'express';export function createProjectsRouter({projectService}){const r=Router();r.get('/api/projects',async(_q,s)=>{try{s.json({projects:await projectService.listProjects(),projectsRoot:projectService.getProjectsRoot()});}catch(e){s.status(400).json({error:e.message});}});return r;}

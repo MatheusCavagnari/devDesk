@@ -4,7 +4,7 @@ Este documento registra o que falta para evoluir o MVP atual. Os status são con
 
 ## Arquitetura atual
 
-O projeto está sendo organizado como um **monólito modular**, sem microserviços: rotas HTTP, providers CLI, gerenciador de processos, persistência e interface têm responsabilidades separadas. O ciclo de vida das execuções está em `src/execution/run-manager.js`; validação de diretórios, proteção de requisições locais e utilitários de tarefas também foram separados em módulos. A CI verifica os testes em Linux e Windows; a execução real dos CLIs ainda precisa de validação manual.
+O projeto foi organizado como monólito modular em Domain, Application, Infrastructure e Presentation. `src/app.js` é o composition root; `src/server.js` é um entrypoint mínimo. Consulte `docs/architecture.md`.
 
 ## Estado atual
 
@@ -24,7 +24,7 @@ O projeto está sendo organizado como um **monólito modular**, sem microserviç
 - [x] **TASK-002 — Adicionar testes de integração HTTP para tarefas.** A suíte inicia o servidor real em porta temporária e verifica configuração, listagem de projetos, CRUD, geração de Markdown, índice sincronizado, prompt do agente, validação de caminhos e bloqueio de origem externa. Linux passou no CI; Windows ainda está sendo validado.
 - [ ] **TASK-003 — Completar robustez e validações de arquivos.** A validação de caminhos e a proteção básica Host/Origin foram adicionadas e exercitadas por testes HTTP; ainda falta revisão de segurança ponta a ponta e tratamento de links simbólicos em arquivos de tarefa individuais.
 - [x] **TASK-004 — Persistir a configuração da pasta raiz.** A pasta selecionada é salva em `~/.devdesk/config.json` e recarregada ao iniciar; ainda falta testar e adicionar uma opção explícita para remover a pasta.
-- [ ] **TASK-005 — Melhorar edição e sincronização das tarefas.** O CRUD/Markdown foi extraído para `src/repositories/markdown-task-repository.js`, as rotas estão em `src/api/routes/tasks.routes.js`, e testes HTTP cobrem edição, exclusão, índice e preservação de critérios marcados. Ainda falta testar edição externa em Markdown.
+- [ ] **TASK-005 — Melhorar edição e sincronização das tarefas.** O CRUD/Markdown foi extraído para `src/infrastructure/persistence/markdown-task-repository.js`, as rotas estão em `src/presentation/http/routes/tasks.routes.js`, e testes HTTP cobrem edição, exclusão, índice e preservação de critérios marcados. Ainda falta testar edição externa em Markdown.
 
 ## Prioridade P0 — Integração com agentes de IA e múltiplos projetos
 
@@ -32,7 +32,7 @@ O projeto está sendo organizado como um **monólito modular**, sem microserviç
 
 - [x] **TASK-017 — Definir e documentar a arquitetura de execução de agentes.** O registro `src/agents/providers.js` usa `src/agents/provider-contract.js` para validar metadados e argumentos de linha de comando. Detecção de autenticação e testes com os CLIs reais ainda faltam.
 - [x] **TASK-018 — Permitir selecionar múltiplos projetos em uma tarefa.** A interface permite selecionar vários projetos e os alvos são persistidos no Markdown canônico. A validação ponta a ponta ainda está pendente.
-- [ ] **TASK-019 — Robustecer o executor de processos local.** O ciclo de vida foi extraído para `src/execution/run-manager.js`, com reserva contra concorrência, timeout configurável, cancelamento da árvore de processos e persistência. Testes unitários simulados foram adicionados; testes de unidade foram adicionados; a CI está verificando os commits recentes e ainda falta validar o comportamento real dos CLIs no Windows.
+- [ ] **TASK-019 — Robustecer o executor de processos local.** O ciclo de vida foi extraído para `src/infrastructure/process/run-manager.js`, com reserva contra concorrência, timeout configurável, cancelamento da árvore de processos e persistência. Testes unitários simulados foram adicionados; testes de unidade foram adicionados; a CI está verificando os commits recentes e ainda falta validar o comportamento real dos CLIs no Windows.
 - [ ] **TASK-020 — Validar os providers CLI.** A implementação inicial consulta a versão dos CLIs no Windows, mas ainda não verifica autenticação e precisa de teste real.
 - [x] **TASK-021 — Criar a interface de execução.** Há seletor de provider, seleção de projetos-alvo, confirmação, saída, status e cancelamento; o fluxo ainda precisa ser testado manualmente.
 - [x] **TASK-022 — Persistir histórico das execuções (implementação inicial).** O histórico grava provider, projeto/tarefa, horários, resultado, código de saída e trecho limitado da saída em `~/.devdesk/runs.json`; execuções interrompidas pelo reinício são marcadas como `interrupted`. Falta validar concorrência, recuperação e comportamento em Windows.
@@ -70,3 +70,12 @@ O projeto está sendo organizado como um **monólito modular**, sem microserviç
 - Cada tarefa deve ter um arquivo em `.devdesk/tasks/` no projeto ao qual pertence.
 - Use os status: `backlog`, `todo`, `in_progress`, `blocked`, `done`.
 - Não marque como concluído sem implementação e verificação correspondente.
+
+
+## Refatoração de arquitetura
+
+- [x] Separar domínio, casos de uso, ports, infraestrutura e rotas HTTP.
+- [x] Criar composition root e manter o entrypoint do servidor mínimo.
+- [x] Documentar decisões SOLID e Clean Architecture em `docs/architecture.md`.
+- [ ] Revisar e expandir testes unitários dos casos de uso e executar a CI após a refatoração.
+- [ ] Validar manualmente Copilot CLI e Codex CLI no Windows.

@@ -1,0 +1,1 @@
+const REQUIRED=['getProject','listProjects','validateRoot']; export function assertProjectRepository(r){const missing=REQUIRED.filter(m=>typeof r?.[m]!=='function');if(missing.length)throw new TypeError('ProjectRepository não implementa: '+missing.join(', '));return r;}

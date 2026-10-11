@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getProvider, listProviders } from '../src/agents/providers.js';
-import { buildProviderArguments, validateProvider } from '../src/agents/provider-contract.js';
+import { getProvider, listProviders } from '../src/infrastructure/agents/providers.js';
+import { buildProviderArguments, validateProvider } from '../src/application/ports/agent-provider.js';
 
 test('o registro lista o GitHub Copilot CLI', () => {
   const providers = listProviders();

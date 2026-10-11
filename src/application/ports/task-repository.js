@@ -1,0 +1,1 @@
+const REQUIRED=['nextTaskId','getTask','listTasks','saveTask','deleteTask']; export function assertTaskRepository(r){const missing=REQUIRED.filter(m=>typeof r?.[m]!=='function');if(missing.length)throw new TypeError('TaskRepository não implementa: '+missing.join(', '));return r;}

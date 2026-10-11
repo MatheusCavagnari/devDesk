@@ -4,7 +4,7 @@ import { EventEmitter } from 'node:events';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { RunManager } from '../src/execution/run-manager.js';
+import { RunManager } from '../src/infrastructure/process/run-manager.js';
 
 function fakeChild(pid = 1234) {
   const child = new EventEmitter();
