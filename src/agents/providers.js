@@ -3,7 +3,7 @@ const providers = [
     id: 'copilot-cli',
     name: 'GitHub Copilot CLI',
     command: 'copilot',
-    description: 'Executa a tarefa com o CLI instalado e autenticado no Windows.',
+    description: 'Executa a tarefa pelo Copilot CLI com permissões de escrita e shell.',
     platforms: ['win32'],
     buildCliArguments({ prompt, targetPaths }) {
       return [
@@ -12,6 +12,25 @@ const providers = [
         '-s',
         ...targetPaths.map(directory => `--add-dir=${directory}`),
         '--allow-tool=write,shell'
+      ];
+    }
+  },
+  {
+    id: 'codex-cli',
+    name: 'OpenAI Codex CLI',
+    command: 'codex',
+    description: 'Executa a tarefa em modo não interativo, com sandbox workspace-write.',
+    platforms: ['win32'],
+    buildCliArguments({ prompt, targetPaths, primaryPath }) {
+      const additionalPaths = targetPaths.filter(directory => directory !== primaryPath);
+      return [
+        'exec',
+        '--cd', primaryPath,
+        '--sandbox', 'workspace-write',
+        '--ask-for-approval', 'never',
+        '--skip-git-repo-check',
+        ...additionalPaths.flatMap(directory => ['--add-dir', directory]),
+        prompt
       ];
     }
   }
