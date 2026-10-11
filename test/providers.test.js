@@ -23,3 +23,18 @@ test('o provider preserva prompt e múltiplos diretórios como argumentos separa
   assert.ok(args.includes('--add-dir=C:\\Projetos\\web'));
   assert.ok(args.includes('--allow-tool=write,shell'));
 });
+
+test('Codex CLI usa sandbox workspace-write e adiciona projetos secundários', () => {
+  const provider = getProvider('codex-cli');
+  assert.ok(provider);
+  const args = provider.buildCliArguments({
+    prompt: 'Implementar integração',
+    primaryPath: 'C:\\Projetos\\api',
+    targetPaths: ['C:\\Projetos\\api', 'C:\\Projetos\\web']
+  });
+  assert.ok(args.includes('exec'));
+  assert.ok(args.includes('--sandbox'));
+  assert.ok(args.includes('workspace-write'));
+  assert.ok(args.includes('--add-dir'));
+  assert.ok(args.includes('C:\\Projetos\\web'));
+});
