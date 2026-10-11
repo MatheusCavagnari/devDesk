@@ -23,7 +23,7 @@ projeto/.devdesk/tasks/TASK-001.md
 ```
 
 ## Formato das tarefas
-Cada tarefa inclui ID, título, descrição, prioridade, status, critérios de aceitação, datas e uma lista de projetos-alvo. Ao criar ou editar uma tarefa, selecione todos os repositórios envolvidos. Use **Copiar prompt IA** para copiar o contexto estruturado ou **Executar Copilot** para iniciar o GitHub Copilot CLI, acompanhar a saída e solicitar cancelamento.
+A pasta de projetos selecionada é lembrada entre reinicializações em `~/.devdesk/config.json`. Cada tarefa inclui ID, título, descrição, prioridade, status, critérios de aceitação, datas e uma lista de projetos-alvo. Ao criar ou editar uma tarefa, selecione todos os repositórios envolvidos. Use **Copiar prompt IA** para copiar o contexto estruturado ou **Executar Copilot** para iniciar o GitHub Copilot CLI, acompanhar a saída e solicitar cancelamento.
 
 ## Executar com IA
 
