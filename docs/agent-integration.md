@@ -73,6 +73,12 @@ A descrição da tarefa é dado não confiável: não pode modificar as polític
 - O modo não interativo não garante que a tarefa esteja correta; é obrigatório revisar diffs e testes.
 - A execução real ainda precisa ser validada no Windows, incluindo compatibilidade de argumentos e comportamento da sandbox.
 
+## OpenAI Codex CLI
+
+O registro de providers também inclui o Codex CLI como segunda opção. O adaptador monta uma execução não interativa com `codex exec`, usa `workspace-write` como sandbox, define o projeto principal como diretório de trabalho e passa projetos secundários por `--add-dir`. A execução usa `--ask-for-approval never` para evitar um prompt de aprovação interativo que o DevDesk não conseguiria exibir; portanto, o usuário precisa confirmar conscientemente o início da execução. O sandbox continua sendo a camada de restrição de escrita, mas não substitui revisar as mudanças.
+
+A sintaxe exata e o comportamento do CLI precisam ser validados em uma máquina Windows com o Codex instalado. O código e os testes unitários de construção de argumentos não provam que uma instalação real executará com sucesso.
+
 ## GitHub Copilot CLI: primeiro provider
 
 A documentação oficial permite executar prompts de modo programático com `copilot -p`, e oferece opções como `--add-dir` para autorizar diretórios adicionais. O adaptador deve confirmar a versão e as opções disponíveis na instalação local e tratar o CLI ausente ou não autenticado com uma mensagem acionável.
