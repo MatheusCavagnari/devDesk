@@ -4,7 +4,7 @@ Este documento registra o que falta para evoluir o MVP atual. Os status são con
 
 ## Arquitetura atual
 
-O projeto está sendo organizado como um **monólito modular**, sem microserviços: rotas HTTP, providers CLI, gerenciador de processos, persistência e interface têm responsabilidades separadas. O primeiro corte extraiu o ciclo de vida das execuções para `src/execution/run-manager.js`; os testes unitários simulam processos e não exigem uma conta de IA. O executor foi extraído para `src/execution/run-manager.js`, e agora há módulos dedicados para validação de diretórios, proteção de requisições locais e utilitários de tarefas. A CI está verificando os testes em Linux e Windows; a execução real dos CLIs ainda precisa de validação manual.
+O projeto está sendo organizado como um **monólito modular**, sem microserviços: rotas HTTP, providers CLI, gerenciador de processos, persistência e interface têm responsabilidades separadas. O ciclo de vida das execuções está em `src/execution/run-manager.js`; validação de diretórios, proteção de requisições locais e utilitários de tarefas também foram separados em módulos. A CI verifica os testes em Linux e Windows; a execução real dos CLIs ainda precisa de validação manual.
 
 ## Estado atual
 
